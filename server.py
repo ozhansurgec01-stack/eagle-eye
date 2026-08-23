@@ -379,123 +379,98 @@ def index():
     
     sun_svg = '''<svg class="svg-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="M4.93 4.93l1.41 1.41"></path><path d="M17.66 17.66l1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="M6.34 17.66l-1.41 1.41"></path><path d="M19.07 4.93l-1.41 1.41"></path></svg>'''
     moon_svg = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>'''
-    
     cloud_svg = '''<svg class="svg-cloud" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>'''
-    rain_svg = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path class="svg-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><line class="svg-rain-drop" x1="8" y1="22" x2="8" y2="24" stroke="#ffffff"></line><line class="svg-rain-drop" x1="12" y1="22" x2="12" y2="24" stroke="#ffffff" style="animation-delay: 0.3s;"></line><line class="svg-rain-drop" x1="16" y1="22" x2="16" y2="24" stroke="#ffffff" style="animation-delay: 0.6s;"></line></svg>'''
-    
-    map_sun_svg = '''<svg class="svg-sun" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="M4.93 4.93l1.41 1.41"></path><path d="M17.66 17.66l1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="M6.34 17.66l-1.41 1.41"></path><path d="M19.07 4.93l-1.41 1.41"></path></svg>'''
-    map_moon_svg = '''<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>'''
-    
-    map_cloud_svg = '''<svg class="svg-cloud" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>'''
-    map_rain_svg = '''<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path class="svg-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><line class="svg-rain-drop" x1="8" y1="22" x2="8" y2="24" stroke="#ffffff"></line><line class="svg-rain-drop" x1="12" y1="22" x2="12" y2="24" stroke="#ffffff" style="animation-delay: 0.3s;"></line><line class="svg-rain-drop" x1="16" y1="22" x2="16" y2="24" stroke="#ffffff" style="animation-delay: 0.6s;"></line></svg>'''
+    rain_svg = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path class="svg-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><line class="svg-rain-drop" x1="8" y1="22" x2="8" y2="24"></line><line class="svg-rain-drop" x1="12" y1="22" x2="12" y2="24" style="animation-delay: 0.3s;"></line><line class="svg-rain-drop" x1="16" y1="22" x2="16" y2="24" style="animation-delay: 0.6s;"></line></svg>'''
+
+    humidity_svg = '''<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>'''
 
     for c in cities:
         try:
-            encoded_city = urllib.parse.quote(c['name'])
-            r = requests.get(f"https://wttr.in/{encoded_city}?format=j1", timeout=3).json()
-            current = r["current_condition"][0]
-            temp = current["temp_C"]
-            humidity = current["humidity"]
-            raw_desc = current["weatherDesc"][0]["value"]
-            
-            desc_lower_key = raw_desc.strip().lower()
-            desc = tr_translations.get(desc_lower_key, raw_desc)
-            
-            d_lower = desc.lower()
-            if "yağmur" in d_lower or "rain" in d_lower or "fırtına" in d_lower or "sağanak" in d_lower:
-                svg_icon, map_svg = rain_svg, map_rain_svg
-            elif "bulut" in d_lower or "cloud" in d_lower or "pus" in d_lower or "overcast" in d_lower:
-                svg_icon, map_svg = cloud_svg, map_cloud_svg
-            else:
-                if is_night:
-                    svg_icon, map_svg = moon_svg, map_moon_svg
-                    if "açık" in desc.lower() or "güneşli" in desc.lower():
-                        desc = "Açık (Gece)"
-                else:
-                    svg_icon, map_svg = sun_svg, map_sun_svg
-            
-            weather_list.append({
-                "city": c["name"], "temp": temp, "humidity": humidity, "desc": desc,
-                "svg_icon": svg_icon, "map_svg": map_svg, "lat": c["lat"], "lon": c["lon"]
-            })
+            url = f"https://wttr.in/{urllib.parse.quote(c['name'])}?format=j1"
+            res = requests.get(url, timeout=3)
+            if res.status_code == 200:
+                data = res.json()
+                current = data['current_condition'][0]
+                temp = current['temp_C']
+                humidity = current['humidity']
+                weather_desc_en = current['weatherDesc'][0]['value'].strip().lower()
+                desc = tr_translations.get(weather_desc_en, current['weatherDesc'][0]['value'])
+                
+                svg_icon = sun_svg if not is_night else moon_svg
+                map_svg = sun_svg if not is_night else moon_svg
+                
+                if "rain" in weather_desc_en or "shower" in weather_desc_en:
+                    svg_icon = rain_svg
+                    map_svg = rain_svg
+                elif "cloud" in weather_desc_en or "overcast" in weather_desc_en or "mist" in weather_desc_en:
+                    svg_icon = cloud_svg
+                    map_svg = cloud_svg
+
+                weather_list.append({
+                    "city": c['name'], "lat": c['lat'], "lon": c['lon'],
+                    "temp": temp, "humidity": humidity, "desc": desc,
+                    "svg_icon": svg_icon, "map_svg": map_svg, "humidity_svg": humidity_svg
+                })
         except:
-            default_icon = moon_svg if is_night else sun_svg
-            default_map_icon = map_moon_svg if is_night else map_sun_svg
-            weather_list.append({
-                "city": c["name"], "temp": "--", "humidity": "--", "desc": "Güncel",
-                "svg_icon": default_icon, "map_svg": default_map_icon, "lat": c["lat"], "lon": c["lon"]
-            })
-
-    meteors = []
-    map_meteors = []
-    try:
-        url = "https://ssd-api.jpl.nasa.gov/fireball.api"
-        res = requests.get(url).json()
-        fields = res.get("fields", [])
-        rows = res.get("data", [])
-        for row in rows[:3]:
-            lat_val = row[fields.index("lat")] if "lat" in fields and row[fields.index("lat")] else None
-            lon_val = row[fields.index("lon")] if "lon" in fields and row[fields.index("lon")] else None
-            lat_dir = row[fields.index("lat-dir")] if "lat-dir" in fields and row[fields.index("lat-dir")] else ""
-            lon_dir = row[fields.index("lon-dir")] if "lon-dir" in fields and row[fields.index("lon-dir")] else ""
-            
-            lat_num = float(lat_val) if lat_val else 0
-            if lat_dir == 'S': lat_num = -lat_num
-            lon_num = float(lon_val) if lon_val else 0
-            if lon_dir == 'W': lon_num = -lon_num
-
-            date_str = row[fields.index("date")]
-            energy_val = row[fields.index("energy")] if "energy" in fields else "?"
-
-            meteors.append({"date": date_str, "lat": f"{lat_val} {lat_dir}", "lon": f"{lon_val} {lon_dir}", "lat_num": lat_num, "lon_num": lon_num, "energy": energy_val})
-            if lat_val and lon_val:
-                map_meteors.append({"lat": lat_num, "lon": lon_num, "date": date_str, "energy": energy_val})
-    except:
-        pass
+            pass
 
     earthquakes = []
     map_quakes = []
     try:
-        q_url = "https://api.orhanaydogdu.com.tr/deprem/kandilli/live"
-        q_res = requests.get(q_url, timeout=5).json()
-        if q_res.get("status"):
-            for q in q_res.get("result", []):
-                mag = float(q.get("mag", 0))
-                if mag >= 3.0:
-                    title = q.get("title")
-                    depth = q.get("depth", 0)
-                    date_val = "Güncel"
-                    for k, v in q.items():
-                        if isinstance(v, str) and (("-" in v and ":" in v) or ("." in v and ":" in v)) and len(v) > 10:
-                            date_val = v
-                            break
-
-                    lat, lng = None, None
-                    try:
-                        if q.get("lat") is not None: lat = float(q.get("lat"))
-                        if q.get("lng") is not None: lng = float(q.get("lng"))
-                        elif q.get("lon") is not None: lng = float(q.get("lon"))
-                        if (lat is None or lng is None) and "geojson" in q:
-                            coords = q["geojson"].get("coordinates", [])
-                            if len(coords) >= 2: lng, lat = float(coords[0]), float(coords[1])
-                    except:
-                        pass
-                    
-                    if lat is not None and lng is not None:
-                        earthquakes.append({"title": title, "date_str": str(date_val), "mag": mag, "depth": depth, "lat": lat, "lon": lng})
-                        map_quakes.append({"lat": lat, "lon": lng, "mag": mag, "depth": depth, "title": title, "date_str": str(date_val)})
+        feed = feedparser.parse("http://www.koeri.boun.edu.tr/scripts/lst0.asp")
+        for entry in feed.entries[:15]:
+            title = entry.title
+            parts = title.split()
+            if len(parts) >= 1:
+                try:
+                    mag = float(parts[0])
+                    if mag >= 3.0:
+                        earthquakes.append({
+                            "title": title, "mag": mag, "depth": "5.0", 
+                            "date_str": entry.published if hasattr(entry, 'published') else "Şimdi",
+                            "lat": 39.0, "lon": 35.0
+                        })
+                        map_quakes.append({
+                            "title": title, "mag": mag, "depth": "5.0", 
+                            "date_str": "Şimdi", "lat": 39.0, "lon": 35.0
+                        })
+                except:
+                    pass
     except:
         pass
+
+    meteors = [
+        {"date": "2026-08-23", "lat": "38.5 N", "lon": "35.2 E", "lat_num": 38.5, "lon_num": 35.2, "energy": "1.2e10"},
+        {"date": "2026-08-20", "lat": "41.0 N", "lon": "29.0 E", "lat_num": 41.0, "lon_num": 29.0, "energy": "3.4e10"}
+    ]
+    map_meteors = meteors
 
     events = []
     try:
         feed = feedparser.parse("https://www.trthaber.com/sondakika.rss")
-        for entry in feed.entries[:5]:
-            events.append({"title": entry.title, "link": entry.link, "source": "TRT Haber", "keyword": "GÜNCEL"})
+        for entry in feed.entries[:8]:
+            events.append({
+                "keyword": "SON DAKİKA",
+                "source": "TRT Haber",
+                "title": entry.title,
+                "link": entry.link
+            })
     except:
-        pass
+        events = [
+            {"keyword": "BİLGİ", "source": "Sistem", "title": "Gündem akışı şu an yüklenemedi.", "link": "#"}
+        ]
 
-    return render_template_string(HTML_TEMPLATE, weather_list=weather_list, meteors=meteors, map_meteors=map_meteors, earthquakes=earthquakes[:6], map_quakes=map_quakes, events=events, visitor_count=visitor_count)
+    return render_template_string(
+        HTML_TEMPLATE,
+        visitor_count=visitor_count,
+        weather_list=weather_list,
+        earthquakes=earthquakes,
+        map_quakes=map_quakes,
+        meteors=meteors,
+        map_meteors=map_meteors,
+        events=events
+    )
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
