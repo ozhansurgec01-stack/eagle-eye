@@ -35,7 +35,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eagle Eye - Pro TR v8.64</title>
+    <title>Eagle Eye - Pro TR v8.66</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -48,6 +48,9 @@ HTML_TEMPLATE = """
             --card-border: #1f2937;
             --card-hover: #1f2937;
             --brand-color: #38bdf8;
+            --marker-bg: rgba(15, 23, 42, 0.95);
+            --marker-border: #ffffff;
+            --marker-color: #38bdf8;
         }
 
         body.light-mode {
@@ -59,6 +62,9 @@ HTML_TEMPLATE = """
             --card-border: #cbd5e1;
             --card-hover: #f8fafc;
             --brand-color: #0284c7;
+            --marker-bg: #ffffff;
+            --marker-border: #0284c7;
+            --marker-color: #0284c7;
         }
 
         body { background-color: var(--bg-body); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; transition: background 0.3s, color 0.3s; }
@@ -115,15 +121,16 @@ HTML_TEMPLATE = """
         .svg-rain-drop { animation: pulseDrop 0.9s ease-in-out infinite; }
 
         .map-icon-box {
-            background: rgba(15, 23, 42, 0.95);
-            border: 1px solid #ffffff;
+            background: var(--marker-bg);
+            border: 1.5px solid var(--marker-border);
+            color: var(--marker-color);
             border-radius: 50%;
-            width: 18px;
-            height: 18px;
+            width: 24px;
+            height: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 8px rgba(0,0,0,0.4);
         }
 
         .quake-card {
@@ -166,13 +173,13 @@ HTML_TEMPLATE = """
 <body>
 
     <div class="header-bar">
-        <div class="brand">🦅 EAGLE EYE v8.64</div>
+        <div class="brand">🦅 EAGLE EYE v8.66</div>
         <div class="header-right">
             <div class="clock-badge" id="liveClock">⏳ --:--:--</div>
             <div class="visitor-badge">
                 👁️ {{ visitor_count }}
             </div>
-            <div id="modeToggleBtn" class="mode-btn" onclick="toggleTheme()">● DARK</div>
+            <div id="modeToggleBtn" class="mode-btn" onclick="toggleTheme()">● LIGHT</div>
         </div>
     </div>
 
@@ -302,8 +309,8 @@ HTML_TEMPLATE = """
                 var customIcon = L.divIcon({
                     html: customHtml,
                     className: 'custom-weather-marker',
-                    iconSize: [18, 18],
-                    iconAnchor: [9, 9]
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
                 });
 
                 L.marker([w.lat, w.lon], { icon: customIcon })
@@ -377,10 +384,10 @@ def index():
         "thunderstorm": "Fırtınalı", "light rain shower": "Hafif Yağmurlu Sağanak"
     }
     
-    sun_svg = '''<svg class="svg-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="M4.93 4.93l1.41 1.41"></path><path d="M17.66 17.66l1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="M6.34 17.66l-1.41 1.41"></path><path d="M19.07 4.93l-1.41 1.41"></path></svg>'''
-    moon_svg = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>'''
-    cloud_svg = '''<svg class="svg-cloud" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>'''
-    rain_svg = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path class="svg-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><line class="svg-rain-drop" x1="8" y1="22" x2="8" y2="24"></line><line class="svg-rain-drop" x1="12" y1="22" x2="12" y2="24" style="animation-delay: 0.3s;"></line><line class="svg-rain-drop" x1="16" y1="22" x2="16" y2="24" style="animation-delay: 0.6s;"></line></svg>'''
+    sun_svg = '''<svg class="svg-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="M4.93 4.93l1.41 1.41"></path><path d="M17.66 17.66l1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="M6.34 17.66l-1.41 1.41"></path><path d="M19.07 4.93l-1.41 1.41"></path></svg>'''
+    moon_svg = '''<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>'''
+    cloud_svg = '''<svg class="svg-cloud" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>'''
+    rain_svg = '''<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path class="svg-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><line class="svg-rain-drop" x1="8" y1="22" x2="8" y2="24"></line><line class="svg-rain-drop" x1="12" y1="22" x2="12" y2="24" style="animation-delay: 0.3s;"></line><line class="svg-rain-drop" x1="16" y1="22" x2="16" y2="24" style="animation-delay: 0.6s;"></line></svg>'''
 
     humidity_svg = '''<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>'''
 
