@@ -7,6 +7,7 @@ import urllib.parse
 
 app = Flask(__name__)
 
+# Sayacı doğrudan kod üzerinden sabitliyoruz (ilk açılış 1)
 COUNTER_FILE = "visitor_count.txt"
 
 def get_visitor_count():
@@ -309,9 +310,15 @@ HTML_TEMPLATE = """
 
 @app.route("/")
 def index():
+    # Dosya yoksa veya sıfırlanmak istendiyse direkt 1'den başlatıyoruz
+    if not os.path.exists(COUNTER_FILE):
+        with open(COUNTER_FILE, "w") as f:
+            f.write("1")
+
     visitor_count = get_visitor_count()
     visited_cookie = request.cookies.get('eagle_eye_visited')
     
+    # Eğer bu tarayıcı daha önce gelmediyse sayacı artır
     if not visited_cookie:
         visitor_count = increment_visitor_count()
         
