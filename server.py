@@ -1,3 +1,4 @@
+from datetime import timedelta
 from flask import Flask, render_template_string, request
 import requests
 import feedparser
@@ -6,6 +7,8 @@ from datetime import datetime
 import urllib.parse
 
 app = Flask(__name__)
+app.secret_key = "eagle_eye_cok_gizli_ve_sabit_anahtar_2026"
+app.permanent_session_lifetime = timedelta(days=30)
 
 COUNTER_FILE = "visitor_count.txt"
 visited_ips = set()
