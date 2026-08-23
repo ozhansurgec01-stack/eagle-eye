@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request, make_response
+from flask import Flask, render_template_string, request
 import requests
 import feedparser
 import os
@@ -7,8 +7,9 @@ import urllib.parse
 
 app = Flask(__name__)
 
-# Sayacı doğrudan kod üzerinden sabitliyoruz (ilk açılış 1)
 COUNTER_FILE = "visitor_count.txt"
+visited_ips = set()
+visitor_ips_history = set()
 
 def get_visitor_count():
     if os.path.exists(COUNTER_FILE):
@@ -48,6 +49,7 @@ HTML_TEMPLATE = """
             --card-hover: #1f2937;
             --brand-color: #38bdf8;
         }
+
         body.light-mode {
             --bg-body: #f1f5f9;
             --bg-header: #0f172a;
@@ -58,31 +60,41 @@ HTML_TEMPLATE = """
             --card-hover: #f8fafc;
             --brand-color: #0284c7;
         }
+
         body { background-color: var(--bg-body); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; transition: background 0.3s, color 0.3s; }
         .header-bar { background: var(--bg-header); color: #fff; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; z-index: 1000; border-bottom: 1px solid #1e293b; }
         .brand { color: var(--brand-color); font-weight: 800; font-size: 0.9rem; letter-spacing: 0.5px; }
+        
         .header-right { display: flex; align-items: center; gap: 6px; }
         .clock-badge { font-size: 0.7rem; background: rgba(15, 23, 42, 0.8); color: #38bdf8; padding: 4px 8px; border-radius: 10px; font-weight: 700; border: 1px solid rgba(56, 189, 248, 0.2); display: flex; align-items: center; gap: 4px; font-family: monospace; letter-spacing: 0.5px; }
         .visitor-badge { font-size: 0.7rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 4px 8px; border-radius: 10px; font-weight: 700; border: 1px solid rgba(56, 189, 248, 0.3); display: flex; align-items: center; gap: 4px; }
+        
         .mode-btn { font-size: 0.7rem; background: rgba(6, 78, 59, 0.8); color: #34d399; padding: 4px 8px; border-radius: 10px; font-weight: 600; border: 1px solid #059669; cursor: pointer; transition: all 0.2s; }
         body.light-mode .mode-btn { background: #e0f2fe; color: #0369a1; border-color: #0284c7; }
+
         .map-container { width: 100%; height: 45vh; flex-shrink: 0; border-bottom: 2px solid var(--card-border); position: relative; }
         #map { width: 100%; height: 100%; position: absolute; top: 0; bottom: 0; left: 0; right: 0; background: #010409; }
+        
         .neon-map .leaflet-tile-pane {
             filter: invert(95%) hue-rotate(190deg) saturate(320%) brightness(120%) contrast(180%);
         }
+
         .content-section { flex-grow: 1; overflow-y: auto; padding: 15px; -webkit-overflow-scrolling: touch; background: var(--bg-body); transition: background 0.3s; }
         .panel-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--brand-color); margin-bottom: 10px; font-weight: 700; }
+        
         .card-custom { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: background 0.3s, border 0.3s; }
         .item-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--card-border); cursor: pointer; }
         .item-row:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
         .item-row:hover { background-color: var(--card-hover); border-radius: 6px; }
+        
         .text-date { color: var(--brand-color); font-size: 0.75rem; font-weight: 700; }
         .text-coord { color: var(--text-main); font-size: 0.8rem; font-weight: 700; text-decoration: none; cursor: pointer; }
+        
         .badge-energy { background: #0284c7; color: #fff; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; }
         .weather-badges { display: flex; gap: 6px; align-items: center; }
         .badge-weather { background: #065f46; color: #34d399; font-size: 0.75rem; padding: 3px 8px; border-radius: 6px; font-weight: 700; display: flex; align-items: center; gap: 6px; border: 1px solid #059669; }
         .badge-humidity { background: #0369a1; color: #e0f2fe; font-size: 0.75rem; padding: 3px 8px; border-radius: 6px; font-weight: 700; display: flex; align-items: center; gap: 5px; border: 1px solid #0284c7; }
+
         @keyframes rotateSun {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
@@ -97,9 +109,11 @@ HTML_TEMPLATE = """
             50% { transform: translateY(4px); opacity: 0.3; }
             100% { transform: translateY(0px); opacity: 1; }
         }
+
         .svg-sun { animation: rotateSun 10s linear infinite; transform-origin: center; transform-box: fill-box; }
         .svg-cloud { animation: floatCloud 3s ease-in-out infinite; }
         .svg-rain-drop { animation: pulseDrop 0.9s ease-in-out infinite; }
+
         .map-icon-box {
             background: rgba(15, 23, 42, 0.95);
             border: 1px solid #ffffff;
@@ -111,6 +125,7 @@ HTML_TEMPLATE = """
             justify-content: center;
             box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
         }
+
         .quake-card {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
@@ -141,6 +156,7 @@ HTML_TEMPLATE = """
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
             flex-shrink: 0;
         }
+
         .alert-card { border-left: 4px solid #ef4444; background: var(--card-bg); border-color: var(--card-border); }
         .badge-alert { background: rgba(239, 68, 68, 0.2); color: #fca5a5; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; border: 1px solid rgba(239, 68, 68, 0.4); }
         .event-link { color: var(--text-main); font-size: 0.85rem; text-decoration: none; font-weight: 600; display: block; margin-top: 3px; }
@@ -148,6 +164,7 @@ HTML_TEMPLATE = """
     </style>
 </head>
 <body>
+
     <div class="header-bar">
         <div class="brand">🦅 EAGLE EYE v8.64</div>
         <div class="header-right">
@@ -158,9 +175,11 @@ HTML_TEMPLATE = """
             <div id="modeToggleBtn" class="mode-btn" onclick="toggleTheme()">● DARK</div>
         </div>
     </div>
+
     <div class="map-container">
         <div id="map" class="neon-map"></div>
     </div>
+
     <div class="content-section">
         <div class="panel-title">🌦️ Başlıca İller Hava Durumu & Nem</div>
         <div class="card-custom">
@@ -181,6 +200,7 @@ HTML_TEMPLATE = """
             </div>
             {% endfor %}
         </div>
+
         <div class="panel-title mt-4">🌍 Son Depremler (Büyüklük >= 3.0)</div>
         <div>
             {% if earthquakes %}
@@ -206,6 +226,7 @@ HTML_TEMPLATE = """
                 <div class="card-custom" style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 5px;">Son 24 saatte 3.0 ve üzeri deprem bulunmuyor.</div>
             {% endif %}
         </div>
+
         <div class="panel-title mt-4">✨ Son Düşen Ateş Topları (NASA)</div>
         <div class="card-custom">
             {% for m in meteors %}
@@ -218,6 +239,7 @@ HTML_TEMPLATE = """
             </div>
             {% endfor %}
         </div>
+
         <div class="panel-title mt-4">🚨 Türkiye Gündem Akışı</div>
         {% for e in events %}
         <div class="card-custom alert-card">
@@ -229,6 +251,7 @@ HTML_TEMPLATE = """
         </div>
         {% endfor %}
     </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         function updateClock() {
@@ -242,6 +265,7 @@ HTML_TEMPLATE = """
         updateClock();
 
         var map = L.map('map', {zoomControl: true}).setView([39.0, 35.0], 5);
+
         var baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19, attribution: '&copy; OpenStreetMap'
         }).addTo(map);
@@ -250,7 +274,9 @@ HTML_TEMPLATE = """
             var body = document.body;
             var mapDiv = document.getElementById('map');
             var btn = document.getElementById('modeToggleBtn');
+            
             body.classList.toggle('light-mode');
+            
             if(body.classList.contains('light-mode')) {
                 mapDiv.classList.remove('neon-map');
                 btn.innerHTML = "● LIGHT";
@@ -259,6 +285,7 @@ HTML_TEMPLATE = """
                 btn.innerHTML = "● DARK";
             }
         }
+
         setTimeout(function(){ map.invalidateSize(); }, 300);
 
         function panToLocation(lat, lon, popupText, zoomLevel) {
@@ -278,6 +305,7 @@ HTML_TEMPLATE = """
                     iconSize: [18, 18],
                     iconAnchor: [9, 9]
                 });
+
                 L.marker([w.lat, w.lon], { icon: customIcon })
                  .addTo(map)
                  .bindPopup("<div style='font-family:sans-serif; color:#111;'><b>🌦️ " + w.city + "</b><br><b>Sıcaklık:</b> " + w.temp + "°C<br><b>Nem:</b> %" + w.humidity + "<br><b>Durum:</b> " + w.desc + "</div>");
@@ -310,18 +338,20 @@ HTML_TEMPLATE = """
 
 @app.route("/")
 def index():
-    # Dosya yoksa veya sıfırlanmak istendiyse direkt 1'den başlatıyoruz
-    if not os.path.exists(COUNTER_FILE):
-        with open(COUNTER_FILE, "w") as f:
-            f.write("1")
-
-    visitor_count = get_visitor_count()
-    visited_cookie = request.cookies.get('eagle_eye_visited')
+    global visitor_count
+    user_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
     
-    # Eğer bu tarayıcı daha önce gelmediyse sayacı artır
-    if not visited_cookie:
-        visitor_count = increment_visitor_count()
-        
+    visitor_count = get_visitor_count()
+    
+    if user_ip not in visited_ips:
+        visited_ips.add(user_ip)
+        if user_ip not in visitor_ips_history:
+            visitor_ips_history.add(user_ip)
+            if visitor_count == 1 and len(visitor_ips_history) == 1:
+                pass
+            else:
+                visitor_count = increment_visitor_count()
+
     current_hour = datetime.now().hour
     is_night = current_hour >= 19 or current_hour < 6
 
@@ -338,7 +368,7 @@ def index():
         {"name": "Samsun", "lat": 41.2867, "lon": 36.33},
         {"name": "Van", "lat": 38.4891, "lon": 43.4089}
     ]
-
+    
     tr_translations = {
         "sunny": "Güneşli", "clear": "Açık", "partly cloudy": "Parçalı Bulutlu",
         "cloudy": "Bulutlu", "overcast": "Çok Bulutlu", "mist": "Puslu",
@@ -346,14 +376,16 @@ def index():
         "light rain": "Hafif Yağmurlu", "moderate rain": "Yağmurlu", "heavy rain": "Şiddetli Yağmurlu",
         "thunderstorm": "Fırtınalı", "light rain shower": "Hafif Yağmurlu Sağanak"
     }
-
+    
     sun_svg = '''<svg class="svg-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="M4.93 4.93l1.41 1.41"></path><path d="M17.66 17.66l1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="M6.34 17.66l-1.41 1.41"></path><path d="M19.07 4.93l-1.41 1.41"></path></svg>'''
     moon_svg = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>'''
+    
     cloud_svg = '''<svg class="svg-cloud" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>'''
     rain_svg = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path class="svg-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><line class="svg-rain-drop" x1="8" y1="22" x2="8" y2="24" stroke="#ffffff"></line><line class="svg-rain-drop" x1="12" y1="22" x2="12" y2="24" stroke="#ffffff" style="animation-delay: 0.3s;"></line><line class="svg-rain-drop" x1="16" y1="22" x2="16" y2="24" stroke="#ffffff" style="animation-delay: 0.6s;"></line></svg>'''
-
+    
     map_sun_svg = '''<svg class="svg-sun" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="M4.93 4.93l1.41 1.41"></path><path d="M17.66 17.66l1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="M6.34 17.66l-1.41 1.41"></path><path d="M19.07 4.93l-1.41 1.41"></path></svg>'''
     map_moon_svg = '''<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>'''
+    
     map_cloud_svg = '''<svg class="svg-cloud" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>'''
     map_rain_svg = '''<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path class="svg-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><line class="svg-rain-drop" x1="8" y1="22" x2="8" y2="24" stroke="#ffffff"></line><line class="svg-rain-drop" x1="12" y1="22" x2="12" y2="24" stroke="#ffffff" style="animation-delay: 0.3s;"></line><line class="svg-rain-drop" x1="16" y1="22" x2="16" y2="24" stroke="#ffffff" style="animation-delay: 0.6s;"></line></svg>'''
 
@@ -365,10 +397,10 @@ def index():
             temp = current["temp_C"]
             humidity = current["humidity"]
             raw_desc = current["weatherDesc"][0]["value"]
-
+            
             desc_lower_key = raw_desc.strip().lower()
             desc = tr_translations.get(desc_lower_key, raw_desc)
-
+            
             d_lower = desc.lower()
             if "yağmur" in d_lower or "rain" in d_lower or "fırtına" in d_lower or "sağanak" in d_lower:
                 svg_icon, map_svg = rain_svg, map_rain_svg
@@ -381,7 +413,7 @@ def index():
                         desc = "Açık (Gece)"
                 else:
                     svg_icon, map_svg = sun_svg, map_sun_svg
-
+            
             weather_list.append({
                 "city": c["name"], "temp": temp, "humidity": humidity, "desc": desc,
                 "svg_icon": svg_icon, "map_svg": map_svg, "lat": c["lat"], "lon": c["lon"]
@@ -406,7 +438,7 @@ def index():
             lon_val = row[fields.index("lon")] if "lon" in fields and row[fields.index("lon")] else None
             lat_dir = row[fields.index("lat-dir")] if "lat-dir" in fields and row[fields.index("lat-dir")] else ""
             lon_dir = row[fields.index("lon-dir")] if "lon-dir" in fields and row[fields.index("lon-dir")] else ""
-
+            
             lat_num = float(lat_val) if lat_val else 0
             if lat_dir == 'S': lat_num = -lat_num
             lon_num = float(lon_val) if lon_val else 0
@@ -448,7 +480,7 @@ def index():
                             if len(coords) >= 2: lng, lat = float(coords[0]), float(coords[1])
                     except:
                         pass
-
+                    
                     if lat is not None and lng is not None:
                         earthquakes.append({"title": title, "date_str": str(date_val), "mag": mag, "depth": depth, "lat": lat, "lon": lng})
                         map_quakes.append({"lat": lat, "lon": lng, "mag": mag, "depth": depth, "title": title, "date_str": str(date_val)})
@@ -463,13 +495,7 @@ def index():
     except:
         pass
 
-    rendered_html = render_template_string(HTML_TEMPLATE, weather_list=weather_list, meteors=meteors, map_meteors=map_meteors, earthquakes=earthquakes[:6], map_quakes=map_quakes, events=events, visitor_count=visitor_count)
-    
-    resp = make_response(rendered_html)
-    if not visited_cookie:
-        resp.set_cookie('eagle_eye_visited', 'true', max_age=60*60*24*365)
-        
-    return resp
+    return render_template_string(HTML_TEMPLATE, weather_list=weather_list, meteors=meteors, map_meteors=map_meteors, earthquakes=earthquakes[:6], map_quakes=map_quakes, events=events, visitor_count=visitor_count)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
