@@ -3,7 +3,8 @@ from flask import Flask, render_template_string, request, make_response
 import requests
 import feedparser
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+TR_TZ = timezone(timedelta(hours=3))
 import urllib.parse
 
 app = Flask(__name__)
@@ -366,7 +367,7 @@ def index():
     else:
         visitor_count = get_visitor_count()
 
-    current_hour = datetime.now().hour
+    current_hour = datetime.now(TR_TZ).replace(tzinfo=None).hour
     is_night = current_hour >= 19 or current_hour < 6
 
     weather_list = []
