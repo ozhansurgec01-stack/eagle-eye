@@ -26,7 +26,7 @@ def get_visitor_count():
 
 def increment_visitor_count():
     ua = request.headers.get('User-Agent', '').lower()
-    is_bot = any(b in ua for b in ['bot', 'crawl', 'spider', 'render', 'uptime', 'ping', 'axios', 'postman'])
+    is_bot = any(b in ua for b in ['bot', 'crawl', 'spider', 'render', 'uptime', 'ping', 'axios', 'postman', 'go-http-client', 'head'])
     if is_bot:
         return get_visitor_count()
     count = get_visitor_count() + 1
