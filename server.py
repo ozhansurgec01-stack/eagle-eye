@@ -25,6 +25,10 @@ def get_visitor_count():
     return 1
 
 def increment_visitor_count():
+    ua = request.headers.get('User-Agent', '').lower()
+    is_bot = any(b in ua for b in ['bot', 'crawl', 'spider', 'render', 'uptime', 'ping', 'axios', 'postman'])
+    if is_bot:
+        return get_visitor_count()
     count = get_visitor_count() + 1
     try:
         with open(COUNTER_FILE, "w") as f:
