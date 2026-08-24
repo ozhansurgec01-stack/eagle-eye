@@ -354,6 +354,32 @@ HTML_TEMPLATE = """
             }
         });
     </script>
+
+<script>
+    window.addEventListener('DOMContentLoaded', () => {
+        const clientIp = "{{ request.remote_addr }}";
+        const box = document.createElement('div');
+        box.innerHTML = '🦅 Eagle Eye Radar<br><span style="font-size: 11px; color: #94a3b8;">Bağlantı IP: ' + clientIp + '</span>';
+        box.style.position = 'fixed';
+        box.style.top = '15px';
+        box.style.left = '50%';
+        box.style.transform = 'translateX(-50%)';
+        box.style.background = '#0f172a';
+        box.style.color = '#38bdf8';
+        box.style.padding = '10px 20px';
+        box.style.borderRadius = '20px';
+        box.style.zIndex = '999999';
+        box.style.fontSize = '13px';
+        box.style.fontWeight = 'bold';
+        box.style.textAlign = 'center';
+        box.style.boxShadow = '0 5px 15px rgba(0,0,0,0.4)';
+        box.style.border = '1px solid #38bdf8';
+        
+        document.body.appendChild(box);
+        setTimeout(() => box.remove(), 5000);
+    });
+</script>
+
 </body>
 </html>
 """
