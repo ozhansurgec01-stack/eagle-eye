@@ -1,5 +1,77 @@
+
+import urllib.request
+import json as _json
+
+def _tr_to_float(s):
+    # "7.177,67" veya "$4.643,74" -> 7177.67
+    s = s.replace("$", "").strip()
+    s = s.replace(".", "").replace(",", ".")
+    return float(s)
+
+def _fmt_try(v):
+    return f"{v:,.2f} \u20ba".replace(",", "X").replace(".", ",").replace("X", ".")
+
+def _fmt_usd(v):
+    return f"{v:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
+
+def get_live_market_data():
+    data = {
+        "btc": "77.452,50 $",
+        "ons": "4.637,69 $",
+        "gram": "7.181,65 \u20ba",
+        "ayar22": "6.437,47 \u20ba",
+        "ceyrek": "11.540,86 \u20ba",
+        "yarim": "23.081,72 \u20ba",
+        "tam": "46.022,27 \u20ba"
+    }
+
+    try:
+        req = urllib.request.Request(
+            "https://finans.truncgil.com/today.json",
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            j = _json.loads(resp.read().decode("utf-8"))
+
+        if "gram-altin" in j:
+            data["gram"] = _fmt_try(_tr_to_float(j["gram-altin"]["Satış"]))
+        if "22-ayar-bilezik" in j:
+            data["ayar22"] = _fmt_try(_tr_to_float(j["22-ayar-bilezik"]["Satış"]))
+        if "ceyrek-altin" in j:
+            data["ceyrek"] = _fmt_try(_tr_to_float(j["ceyrek-altin"]["Satış"]))
+        if "yarim-altin" in j:
+            data["yarim"] = _fmt_try(_tr_to_float(j["yarim-altin"]["Satış"]))
+        if "tam-altin" in j:
+            data["tam"] = _fmt_try(_tr_to_float(j["tam-altin"]["Satış"]))
+        if "ons" in j:
+            data["ons"] = _fmt_usd(_tr_to_float(j["ons"]["Satış"]))
+    except Exception as e:
+        print("Truncgil altın verisi alınamadı, varsayılan kullanılıyor:", e)
+
+    try:
+        req2 = urllib.request.Request(
+            "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd",
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        with urllib.request.urlopen(req2, timeout=6) as resp2:
+            j2 = _json.loads(resp2.read().decode("utf-8"))
+        data["btc"] = _fmt_usd(j2["bitcoin"]["usd"])
+    except Exception as e:
+        print("CoinGecko BTC verisi alınamadı, varsayılan kullanılıyor:", e)
+
+    return data
+
+
+import urllib.request
+import json as _json
+
+
+import urllib.request
+import json
+
+
 from datetime import timedelta
-from flask import Flask, render_template_string, request, make_response
+from flask import Flask, render_template_string, request, make_response, jsonify
 import requests
 import feedparser
 import os
@@ -191,36 +263,36 @@ HTML_TEMPLATE = """
     <div class="ticker-track">
 
         <div class="ticker-content">
-            <span>🪙 BİTCOİN: <strong class="btc">77.452,50 $</strong></span>
+            <span>🪙 BİTCOİN: <strong id="t-btc" class="btc">77.452,50 $</strong></span>
             <span class="dot">•</span>
-            <span>🟡 ONS ALTIN: <strong class="ons">4.603,11 $</strong></span>
+            <span>🟡 ONS ALTIN: <strong id="t-ons" class="ons">4.603,11 $</strong></span>
             <span class="dot">•</span>
-            <span>🥇 GRAM ALTIN: <strong class="gold">7.181,65 ₺</strong></span>
+            <span>🥇 GRAM ALTIN: <strong id="t-gram" class="gold">7.181,65 ₺</strong></span>
             <span class="dot">•</span>
-            <span>💍 22 AYAR: <strong class="gold">6.437,47 ₺</strong></span>
+            <span>💍 22 AYAR: <strong id="t-ayar22" class="gold">6.437,47 ₺</strong></span>
             <span class="dot">•</span>
-            <span>🪙 ÇEYREK: <strong class="gold">11.540,86 ₺</strong></span>
+            <span>🪙 ÇEYREK: <strong id="t-ceyrek" class="gold">11.540,86 ₺</strong></span>
             <span class="dot">•</span>
-            <span>🪙 YARIM: <strong class="gold">23.081,72 ₺</strong></span>
+            <span>🪙 YARIM: <strong id="t-yarim" class="gold">23.081,72 ₺</strong></span>
             <span class="dot">•</span>
-            <span>🪙 TAM ALTIN: <strong class="gold">46.022,27 ₺</strong></span>
+            <span>🪙 TAM ALTIN: <strong id="t-tam" class="gold">46.022,27 ₺</strong></span>
             <span class="sep">|</span>
         </div>
 
         <div class="ticker-content">
-            <span>🪙 BİTCOİN: <strong class="btc">77.452,50 $</strong></span>
+            <span>🪙 BİTCOİN: <strong id="t-btc" class="btc">77.452,50 $</strong></span>
             <span class="dot">•</span>
-            <span>🟡 ONS ALTIN: <strong class="ons">4.603,11 $</strong></span>
+            <span>🟡 ONS ALTIN: <strong id="t-ons" class="ons">4.603,11 $</strong></span>
             <span class="dot">•</span>
-            <span>🥇 GRAM ALTIN: <strong class="gold">7.181,65 ₺</strong></span>
+            <span>🥇 GRAM ALTIN: <strong id="t-gram" class="gold">7.181,65 ₺</strong></span>
             <span class="dot">•</span>
-            <span>💍 22 AYAR: <strong class="gold">6.437,47 ₺</strong></span>
+            <span>💍 22 AYAR: <strong id="t-ayar22" class="gold">6.437,47 ₺</strong></span>
             <span class="dot">•</span>
-            <span>🪙 ÇEYREK: <strong class="gold">11.540,86 ₺</strong></span>
+            <span>🪙 ÇEYREK: <strong id="t-ceyrek" class="gold">11.540,86 ₺</strong></span>
             <span class="dot">•</span>
-            <span>🪙 YARIM: <strong class="gold">23.081,72 ₺</strong></span>
+            <span>🪙 YARIM: <strong id="t-yarim" class="gold">23.081,72 ₺</strong></span>
             <span class="dot">•</span>
-            <span>🪙 TAM ALTIN: <strong class="gold">46.022,27 ₺</strong></span>
+            <span>🪙 TAM ALTIN: <strong id="t-tam" class="gold">46.022,27 ₺</strong></span>
             <span class="sep">|</span>
         </div>
 
@@ -543,6 +615,43 @@ HTML_TEMPLATE = """
     });
 </script>
 
+
+
+
+
+
+
+
+<script>
+async function updateMarketPrices() {
+    try {
+        let response = await fetch('/api/gold-prices');
+        if (!response.ok) return;
+        let data = await response.json();
+
+        const map = {
+            "t-btc": data.btc,
+            "t-ons": data.ons,
+            "t-gram": data.gram,
+            "t-ayar22": data.ayar22,
+            "t-ceyrek": data.ceyrek,
+            "t-yarim": data.yarim,
+            "t-tam": data.tam
+        };
+
+        for (const id in map) {
+            document.querySelectorAll('#' + id).forEach(el => {
+                if (map[id] !== undefined) el.textContent = map[id];
+            });
+        }
+    } catch (e) {
+        console.log("Piyasa verisi alınamadı:", e);
+    }
+}
+updateMarketPrices();
+setInterval(updateMarketPrices, 30000);
+</script>
+
 </body>
 <
 <style>
@@ -590,6 +699,11 @@ HTML_TEMPLATE = """
 
 /html>
 """
+
+
+@app.route("/api/gold-prices")
+def api_gold_prices():
+    return jsonify(get_live_market_data())
 
 @app.route("/")
 def index():
