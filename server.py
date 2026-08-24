@@ -770,15 +770,29 @@ def index():
 
     for c in cities:
         try:
-            url = f"https://wttr.in/{urllib.parse.quote(c['name'])}?format=j1"
-            res = requests.get(url, timeout=3)
+            url = f"https://api.open-meteo.com/v1/forecast?latitude={c['lat']}&longitude={c['lon']}&current=temperature_2m,relative_humidity_2m,weather_code"
+            try:
+                res = requests.get(url, timeout=8)
+            except requests.exceptions.Timeout:
+                res = requests.get(url, timeout=10)
             if res.status_code == 200:
                 data = res.json()
-                current = data['current_condition'][0]
-                temp = current['temp_C']
-                humidity = current['humidity']
-                weather_desc_en = current['weatherDesc'][0]['value'].strip().lower()
-                desc = tr_translations.get(weather_desc_en, current['weatherDesc'][0]['value'])
+                current = data['current']
+                temp = str(round(current['temperature_2m']))
+                humidity = str(current['relative_humidity_2m'])
+                wcode = current['weather_code']
+                wmo_map = {
+                    0: ("clear", "Açık"), 1: ("sunny", "Güneşli"), 2: ("partly cloudy", "Parçalı Bulutlu"),
+                    3: ("cloudy", "Bulutlu"), 45: ("mist", "Puslu"), 48: ("mist", "Puslu"),
+                    51: ("light rain", "Hafif Yağmurlu"), 53: ("moderate rain", "Yağmurlu"),
+                    55: ("moderate rain", "Yağmurlu"), 61: ("light rain", "Hafif Yağmurlu"),
+                    63: ("moderate rain", "Yağmurlu"), 65: ("heavy rain", "Şiddetli Yağmurlu"),
+                    71: ("light rain", "Karlı"), 73: ("moderate rain", "Karlı"), 75: ("heavy rain", "Şiddetli Karlı"),
+                    80: ("light rain shower", "Sağanak Yağmurlu"), 81: ("moderate rain", "Sağanak Yağmurlu"),
+                    82: ("heavy rain", "Şiddetli Sağanak"), 95: ("thunderstorm", "Fırtınalı"),
+                    96: ("thunderstorm", "Fırtınalı"), 99: ("thunderstorm", "Fırtınalı")
+                }
+                weather_desc_en, desc = wmo_map.get(wcode, ("clear", "Açık"))
                 
                 svg_icon = sun_svg if not is_night else moon_svg
                 map_svg = sun_svg if not is_night else moon_svg
@@ -795,8 +809,8 @@ def index():
                     "temp": temp, "humidity": humidity, "desc": desc,
                     "svg_icon": svg_icon, "map_svg": map_svg, "humidity_svg": humidity_svg
                 })
-        except:
-            pass
+        except Exception as e:
+            print(f"HAVA DURUMU HATASI ({c['name']}): {e}")
 
     earthquakes = []
     map_quakes = []
