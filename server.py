@@ -187,6 +187,169 @@ HTML_TEMPLATE = """
 
 <body>
 
+<div id="market-ticker-bar">
+    <div class="ticker-track">
+
+        <div class="ticker-content">
+            <span>🪙 BİTCOİN: <strong class="btc">77.452,50 $</strong></span>
+            <span class="dot">•</span>
+            <span>🟡 ONS ALTIN: <strong class="ons">4.603,11 $</strong></span>
+            <span class="dot">•</span>
+            <span>🥇 GRAM ALTIN: <strong class="gold">7.181,65 ₺</strong></span>
+            <span class="dot">•</span>
+            <span>💍 22 AYAR: <strong class="gold">6.437,47 ₺</strong></span>
+            <span class="dot">•</span>
+            <span>🪙 ÇEYREK: <strong class="gold">11.540,86 ₺</strong></span>
+            <span class="dot">•</span>
+            <span>🪙 YARIM: <strong class="gold">23.081,72 ₺</strong></span>
+            <span class="dot">•</span>
+            <span>🪙 TAM ALTIN: <strong class="gold">46.022,27 ₺</strong></span>
+            <span class="sep">|</span>
+        </div>
+
+        <div class="ticker-content">
+            <span>🪙 BİTCOİN: <strong class="btc">77.452,50 $</strong></span>
+            <span class="dot">•</span>
+            <span>🟡 ONS ALTIN: <strong class="ons">4.603,11 $</strong></span>
+            <span class="dot">•</span>
+            <span>🥇 GRAM ALTIN: <strong class="gold">7.181,65 ₺</strong></span>
+            <span class="dot">•</span>
+            <span>💍 22 AYAR: <strong class="gold">6.437,47 ₺</strong></span>
+            <span class="dot">•</span>
+            <span>🪙 ÇEYREK: <strong class="gold">11.540,86 ₺</strong></span>
+            <span class="dot">•</span>
+            <span>🪙 YARIM: <strong class="gold">23.081,72 ₺</strong></span>
+            <span class="dot">•</span>
+            <span>🪙 TAM ALTIN: <strong class="gold">46.022,27 ₺</strong></span>
+            <span class="sep">|</span>
+        </div>
+
+    </div>
+</div>
+
+<style>
+#market-ticker-bar {
+    width:100%;
+    height:38px;
+    min-height:38px;
+    background:#05070d;
+    border-bottom:1px solid rgba(56,189,248,.3);
+    overflow:hidden;
+    position:relative;
+    z-index:9999;
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial,Helvetica,sans-serif;
+}
+
+#market-ticker-bar .ticker-track {
+    display:flex;
+    width:max-content;
+    height:38px;
+    align-items:center;
+    white-space:nowrap;
+    animation:flexTickerScroll 30s linear infinite;
+    will-change:transform;
+}
+
+#market-ticker-bar .ticker-content {
+    display:flex;
+    flex-shrink:0;
+    align-items:center;
+    height:38px;
+    white-space:nowrap;
+    font-size:13px;
+    font-weight:600;
+    line-height:38px;
+    color:#f1f5f9;
+    gap:20px;
+    padding-right:20px;
+    box-sizing:border-box;
+}
+
+#market-ticker-bar strong {
+    font-weight:700;
+}
+
+#market-ticker-bar .btc {
+    color:#38bdf8;
+}
+
+#market-ticker-bar .ons {
+    color:#4ade80;
+}
+
+#market-ticker-bar .gold {
+    color:#fbbf24;
+}
+
+#market-ticker-bar .dot {
+    color:#64748b;
+}
+
+#market-ticker-bar .sep {
+    color:#38bdf8;
+    font-weight:bold;
+}
+
+@keyframes flexTickerScroll {
+    from { transform:translateX(0); }
+    to   { transform:translateX(-50%); }
+}
+
+@media(max-width:600px) {
+    #market-ticker-bar .ticker-content {
+        font-size:12px;
+        gap:15px;
+        padding-right:15px;
+    }
+}
+</style>
+
+
+
+    <div style="width: 100%; background: #05070d; border-bottom: 1px solid rgba(56, 189, 248, 0.3); overflow: hidden; position: relative; z-index: 9999; margin: 0; padding: 0;">
+        <div style="display: flex; width: 100%; height: 40px; align-items: center; overflow: hidden;">
+            <div style="display: inline-flex; align-items: center; white-space: nowrap; animation: perfectScroll 30s linear infinite; font-size: 13px; font-weight: 600; color: #f1f5f9;">
+                <span style="margin: 0 15px;">🪙 BİTCOİN: <strong style="color:#38bdf8;">77.452,50 $</strong></span>
+                <span style="margin: 0 10px; color:#64748b;">•</span>
+                <span style="margin: 0 15px;">🟡 ONS ALTIN: <strong style="color:#4ade80;">4.603,11 $</strong></span>
+                <span style="margin: 0 10px; color:#64748b;">•</span>
+                <span style="margin: 0 15px;">🥇 GRAM ALTIN: <strong style="color:#fbbf24;">7.181,65 ₺</strong></span>
+                <span style="margin: 0 10px; color:#64748b;">•</span>
+                <span style="margin: 0 15px;">💍 22 AYAR: <strong style="color:#fbbf24;">6.437,47 ₺</strong></span>
+                <span style="margin: 0 10px; color:#64748b;">•</span>
+                <span style="margin: 0 15px;">🪙 ÇEYREK: <strong style="color:#fbbf24;">11.540,86 ₺</strong></span>
+                <span style="margin: 0 10px; color:#64748b;">•</span>
+                <span style="margin: 0 15px;">🪙 YARIM: <strong style="color:#fbbf24;">23.081,72 ₺</strong></span>
+                <span style="margin: 0 10px; color:#64748b;">•</span>
+                <span style="margin: 0 15px;">🪙 TAM ALTIN: <strong style="color:#fbbf24;">46.022,27 ₺</strong></span>
+                <span style="margin: 0 15px; color:#38bdf8;">&nbsp;|&nbsp;</span>
+                <span style="margin: 0 15px;">🪙 BİTCOİN: <strong style="color:#38bdf8;">77.452,50 $</strong></span>
+                <span style="margin: 0 10px; color:#64748b;">•</span>
+                <span style="margin: 0 15px;">🟡 ONS ALTIN: <strong style="color:#4ade80;">4.603,11 $</strong></span>
+                <span style="margin: 0 10px; color:#64748b;">•</span>
+                <span style="margin: 0 15px;">🥇 GRAM ALTIN: <strong style="color:#fbbf24;">7.181,65 ₺</strong></span>
+                <span style="margin: 0 10px; color:#64748b;">•</span>
+                <span style="margin: 0 15px;">💍 22 AYAR: <strong style="color:#fbbf24;">6.437,47 ₺</strong></span>
+                <span style="margin: 0 10px; color:#64748b;">•</span>
+                <span style="margin: 0 15px;">🪙 ÇEYREK: <strong style="color:#fbbf24;">11.540,86 ₺</strong></span>
+                <span style="margin: 0 10px; color:#64748b;">•</span>
+                <span style="margin: 0 15px;">🪙 YARIM: <strong style="color:#fbbf24;">23.081,72 ₺</strong></span>
+                <span style="margin: 0 10px; color:#64748b;">•</span>
+                <span style="margin: 0 15px;">🪙 TAM ALTIN: <strong style="color:#fbbf24;">46.022,27 ₺</strong></span>
+            </div>
+        </div>
+    </div>
+    <style>
+    @keyframes perfectScroll {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-50%); }
+    }
+    </style>
+    
+
     <div class="header-bar">
         <div class="brand">🦅 EAGLE EYE v8.66</div>
         <div class="header-right">
@@ -381,7 +544,51 @@ HTML_TEMPLATE = """
 </script>
 
 </body>
-</html>
+<
+<style>
+/* EAGLE EYE DARALTMA */
+#eagle-eye,
+.eagle-eye,
+#eagleEye,
+.eagleEye {
+    transform:scale(0.88);
+    transform-origin:left center;
+    max-width:88%;
+}
+
+#clock,
+.clock,
+#saat,
+.saat,
+#counter,
+.counter,
+#sayac,
+.sayac {
+    transform:scale(0.88);
+    transform-origin:left center;
+    max-width:88%;
+}
+
+@media(max-width:600px) {
+    #eagle-eye,
+    .eagle-eye,
+    #eagleEye,
+    .eagleEye,
+    #clock,
+    .clock,
+    #saat,
+    .saat,
+    #counter,
+    .counter,
+    #sayac,
+    .sayac {
+        transform:scale(0.82);
+        max-width:82%;
+    }
+}
+</style>
+
+/html>
 """
 
 @app.route("/")
