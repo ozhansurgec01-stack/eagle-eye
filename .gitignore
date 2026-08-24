@@ -3,3 +3,5 @@ __pycache__/
 visitor_count.txt
 backups/
 .DS_Store
+*.py.bak*
+truncgil.json

@@ -1,9 +1,9 @@
 
 import urllib.request
 import json as _json
+import time as _time
 
 def _tr_to_float(s):
-    # "7.177,67" veya "$4.643,74" -> 7177.67
     s = s.replace("$", "").strip()
     s = s.replace(".", "").replace(",", ".")
     return float(s)
@@ -14,16 +14,22 @@ def _fmt_try(v):
 def _fmt_usd(v):
     return f"{v:,.2f} $".replace(",", "X").replace(".", ",").replace("X", ".")
 
-def get_live_market_data():
-    data = {
-        "btc": "77.452,50 $",
-        "ons": "4.637,69 $",
-        "gram": "7.181,65 \u20ba",
-        "ayar22": "6.437,47 \u20ba",
-        "ceyrek": "11.540,86 \u20ba",
-        "yarim": "23.081,72 \u20ba",
-        "tam": "46.022,27 \u20ba"
-    }
+_DEFAULT_DATA = {
+    "btc": "77.452,50 $",
+    "ons": "4.637,69 $",
+    "gram": "7.181,65 \u20ba",
+    "ayar22": "6.437,47 \u20ba",
+    "ceyrek": "11.540,86 \u20ba",
+    "yarim": "23.081,72 \u20ba",
+    "tam": "46.022,27 \u20ba"
+}
+
+_cache = {"data": None, "ts": 0}
+_last_good = {"data": None}
+CACHE_TTL = 60  # saniye
+
+def _fetch_market_data_live():
+    data = dict(_last_good["data"] or _DEFAULT_DATA)
 
     try:
         req = urllib.request.Request(
@@ -46,7 +52,7 @@ def get_live_market_data():
         if "ons" in j:
             data["ons"] = _fmt_usd(_tr_to_float(j["ons"]["Satış"]))
     except Exception as e:
-        print("Truncgil altın verisi alınamadı, varsayılan kullanılıyor:", e)
+        print("Truncgil altın verisi alınamadı, önceki/varsayılan kullanılıyor:", e)
 
     try:
         req2 = urllib.request.Request(
@@ -57,9 +63,21 @@ def get_live_market_data():
             j2 = _json.loads(resp2.read().decode("utf-8"))
         data["btc"] = _fmt_usd(j2["bitcoin"]["usd"])
     except Exception as e:
-        print("CoinGecko BTC verisi alınamadı, varsayılan kullanılıyor:", e)
+        print("CoinGecko BTC verisi alınamadı, önceki/varsayılan kullanılıyor:", e)
 
+    _last_good["data"] = data
     return data
+
+def get_live_market_data():
+    now = _time.time()
+    if _cache["data"] is not None and (now - _cache["ts"]) < CACHE_TTL:
+        return _cache["data"]
+
+    data = _fetch_market_data_live()
+    _cache["data"] = data
+    _cache["ts"] = now
+    return data
+
 
 
 import urllib.request
@@ -649,7 +667,7 @@ async function updateMarketPrices() {
     }
 }
 updateMarketPrices();
-setInterval(updateMarketPrices, 30000);
+setInterval(updateMarketPrices, 60000);
 </script>
 
 </body>
