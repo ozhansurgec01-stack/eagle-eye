@@ -206,7 +206,7 @@ HTML_TEMPLATE = """
         <div class="panel-title">🌦️ Başlıca İller Hava Durumu & Nem</div>
         <div class="card-custom">
             {% for w in weather_list %}
-            <div class="item-row" onclick="panToLocation({{ w.lat }}, {{ w.lon }}, '<b>🌦️ Hava Durumu: {{ w.city }}</b><br><b>Sıcaklık:</b> {{ w.temp }}°C<br><b>Nem:</b> %{{ w.humidity }}<br><b>Durum:</b> {{ w.desc }}', 8)">
+            <div class="item-row" onclick="panToLocation({{ w.lat }}, {{ w.lon }}, '<b>🌦️ Hava Durumu: {{ w.city }}</b><br><b>Sıcaklık:</b> {{ w.temp }}°C<br><b>Nem:</b> %{{ w.humidity }}<br><b>Durum:</b> {{ w.desc }}', 6)">
                 <div>
                     <div class="text-date">{{ w.city }}</div>
                     <div class="text-coord">{{ w.desc }}</div>
@@ -227,7 +227,7 @@ HTML_TEMPLATE = """
         <div>
             {% if earthquakes %}
                 {% for q in earthquakes %}
-                <div class="quake-card" onclick="panToLocation({{ q.lat }}, {{ q.lon }}, '<b>🚨 Deprem</b><br><b>Yer:</b> {{ q.title }}<br><b>Büyüklük:</b> {{ q.mag }}<br><b>Derinlik:</b> {{ q.depth }} km<br><b>Tarih:</b> {{ q.date_str }}', 8)">
+                <div class="quake-card" onclick="panToLocation({{ q.lat }}, {{ q.lon }}, '<b>🚨 Deprem</b><br><b>Yer:</b> {{ q.title }}<br><b>Büyüklük:</b> {{ q.mag }}<br><b>Derinlik:</b> {{ q.depth }} km<br><b>Tarih:</b> {{ q.date_str }}', 6)">
                     <div class="quake-info">
                         <div class="quake-line" style="color: var(--text-muted); font-size: 0.75rem;">
                             🕒 {{ q.date_str }} &nbsp;&nbsp; 📍 <span style="color: var(--text-main); font-weight: 800;">{{ q.title }}</span>
@@ -252,7 +252,7 @@ HTML_TEMPLATE = """
         <div class="panel-title mt-4">✨ Son Düşen Ateş Topları (NASA)</div>
         <div class="card-custom">
             {% for m in meteors %}
-            <div class="item-row" onclick="panToLocation({{ m.lat_num }}, {{ m.lon_num }}, '<b>✨ Ateş Topu (NASA)</b><br><b>Tarih:</b> {{ m.date }}<br><b>Enerji:</b> {{ m.energy }} J', 2)">
+            <div class="item-row" onclick="panToLocation({{ m.lat_num }}, {{ m.lon_num }}, '<b>✨ Ateş Topu (NASA)</b><br><b>Tarih:</b> {{ m.date }}<br><b>Enerji:</b> {{ m.energy }} J', 6)">
                 <div>
                     <div class="text-date">{{ m.date }}</div>
                     <div class="text-coord">Konum: {{ m.lat }}, {{ m.lon }}</div>
@@ -380,7 +380,7 @@ def index():
         {"name": "Ankara", "lat": 39.9334, "lon": 32.8597},
         {"name": "İzmir", "lat": 38.4192, "lon": 27.1287},
         {"name": "Antalya", "lat": 36.8969, "lon": 30.7133},
-        {"name": "Trabzon", "lat": 41.0027, "lon": 39.7168},
+        {"name": "Trabzon", "lat": 41.0015, "lon": 39.7178},
         {"name": "Adana", "lat": 37.0000, "lon": 35.3213},
         {"name": "Diyarbakır", "lat": 37.9144, "lon": 40.2306},
         {"name": "Erzurum", "lat": 39.9043, "lon": 41.2679},
@@ -459,8 +459,8 @@ def index():
         pass
 
     meteors = [
-        {"date": "2026-08-23", "lat": "38.5 N", "lon": "35.2 E", "lat_num": 38.5, "lon_num": 35.2, "energy": "1.2e10"},
-        {"date": "2026-08-20", "lat": "41.0 N", "lon": "29.0 E", "lat_num": 41.0, "lon_num": 29.0, "energy": "3.4e10"}
+        {"date": "2026-08-23", "lat": "47.7 N", "lon": "119.4 W", "lat_num": 47.7, "lon_num": -119.4, "energy": "1.2e10"},
+        {"date": "2026-08-20", "lat": "19.5 S", "lon": "176.2 E", "lat_num": -19.5, "lon_num": 176.2, "energy": "3.4e10"}
     ]
     map_meteors = meteors
 
