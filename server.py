@@ -1,5 +1,5 @@
 from datetime import timedelta
-from flask import Flask, render_template_string, request
+from flask import Flask, render_template_string, request, make_response
 import requests
 import feedparser
 import os
@@ -67,7 +67,7 @@ HTML_TEMPLATE = """
             --brand-color: #0284c7;
             --marker-bg: #ffffff;
             --marker-border: #0284c7;
-            --marker-color: #0284c7;
+            --marker-color: #ca8a04;
         }
 
         body { background-color: var(--bg-body); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; transition: background 0.3s, color 0.3s; }
@@ -353,14 +353,11 @@ def index():
     
     visitor_count = get_visitor_count()
     
-    if user_ip not in visited_ips:
-        visited_ips.add(user_ip)
-        if user_ip not in visitor_ips_history:
-            visitor_ips_history.add(user_ip)
-            if visitor_count == 1 and len(visitor_ips_history) == 1:
-                pass
-            else:
-                visitor_count = increment_visitor_count()
+    has_visited = request.cookies.get('eagle_eye_visited')
+    if not has_visited:
+        visitor_count = increment_visitor_count()
+    else:
+        visitor_count = get_visitor_count()
 
     current_hour = datetime.now().hour
     is_night = current_hour >= 19 or current_hour < 6
@@ -470,7 +467,7 @@ def index():
             {"keyword": "BİLGİ", "source": "Sistem", "title": "Gündem akışı şu an yüklenemedi.", "link": "#"}
         ]
 
-    return render_template_string(
+    res = make_response(render_template_string(
         HTML_TEMPLATE,
         visitor_count=visitor_count,
         weather_list=weather_list,
@@ -479,7 +476,10 @@ def index():
         meteors=meteors,
         map_meteors=map_meteors,
         events=events
-    )
+    ))
+    if not request.cookies.get('eagle_eye_visited'):
+        res.set_cookie('eagle_eye_visited', 'true', max_age=365*24*60*60)
+    return res
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
