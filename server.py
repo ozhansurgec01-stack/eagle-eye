@@ -172,7 +172,14 @@ HTML_TEMPLATE = """
         .event-link { color: var(--text-main); font-size: 0.85rem; text-decoration: none; font-weight: 600; display: block; margin-top: 3px; }
         .event-link:hover { color: var(--brand-color); }
     </style>
+
+<style>
+/* Harita ikonlarini ve animasyonlu gunesleri daha kibar ve şık boyut yapalım */
+.leaflet-marker-icon svg, .sun-anim {
+}
+</style>
 </head>
+
 <body>
 
     <div class="header-bar">
