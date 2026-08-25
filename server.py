@@ -224,7 +224,7 @@ HTML_TEMPLATE = """
             --brand-color: #0284c7;
             --marker-bg: #ffffff;
             --marker-border: #0284c7;
-            --marker-color: #ca8a04;
+            --marker-color: #ea580c;
         }
 
         body { background-color: var(--bg-body); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; transition: background 0.3s, color 0.3s; }
@@ -241,6 +241,7 @@ HTML_TEMPLATE = """
         .map-container { width: 100%; height: 45vh; flex-shrink: 0; border-bottom: 2px solid var(--card-border); position: relative; }
         #map { width: 100%; height: 100%; position: absolute; top: 0; bottom: 0; left: 0; right: 0; background: #010409; }
         
+        .leaflet-tile-pane { filter: contrast(1.35) saturate(1.6) brightness(0.94); }
         .neon-map .leaflet-tile-pane {
             filter: invert(95%) hue-rotate(190deg) saturate(320%) brightness(120%) contrast(180%);
         }
@@ -634,6 +635,8 @@ HTML_TEMPLATE = """
         }
 
         var weatherData = {{ weather_list | safe }};
+
+        L.marker([40.2552, 40.2249], { icon: L.divIcon({ html: '<div style="font-size:11px;font-weight:600;color:#334155;white-space:nowrap;">Bayburt</div>', className: '', iconSize: [60,14], iconAnchor: [30,7] }) }).addTo(map);
         weatherData.forEach(function(w) {
             if(w.lat && w.lon) {
                 var customHtml = '<div class="map-icon-box">' + w.map_svg + '</div>';
@@ -901,6 +904,8 @@ def get_weather_data(is_night):
                     96: ("thunderstorm", "Fırtınalı"), 99: ("thunderstorm", "Fırtınalı")
                 }
                 weather_desc_en, desc = wmo_map.get(wcode, ("clear", "Açık"))
+                if is_night and desc == "Güneşli":
+                    desc = "Açık"
                 
                 svg_icon = sun_svg if not is_night else moon_svg
                 map_svg = sun_svg if not is_night else moon_svg
