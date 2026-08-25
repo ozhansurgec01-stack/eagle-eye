@@ -115,8 +115,57 @@ app.secret_key = "eagle_eye_cok_gizli_ve_sabit_anahtar_2026"
 app.permanent_session_lifetime = timedelta(days=30)
 
 COUNTER_FILE = "visitor_count.txt"
+VISITOR_LOG_FILE = "visitor_log.jsonl"
 visited_ips = set()
 visitor_ips_history = set()
+
+def get_location_from_ip(ip):
+    try:
+        if ip in ("127.0.0.1", "localhost") or ip.startswith("192.168.") or ip.startswith("10."):
+            return "Yerel Ağ"
+        req = urllib.request.Request(
+            f"http://ip-api.com/json/{ip}?fields=status,country,city,query",
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            j = _json.loads(resp.read().decode("utf-8"))
+        if j.get("status") == "success":
+            city = j.get("city", "")
+            country = j.get("country", "")
+            return f"{city}, {country}".strip(", ")
+        return "Bilinmiyor"
+    except Exception:
+        return "Bilinmiyor"
+
+def log_visitor(ip, user_agent):
+    try:
+        location = get_location_from_ip(ip)
+        entry = {
+            "ip": ip,
+            "location": location,
+            "user_agent": user_agent,
+            "time": datetime.now(TR_TZ).strftime("%Y-%m-%d %H:%M:%S")
+        }
+        with open(VISITOR_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(_json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception as e:
+        print("Ziyaretçi loglama hatası:", e)
+
+def get_visitor_log(limit=100):
+    entries = []
+    if os.path.exists(VISITOR_LOG_FILE):
+        try:
+            with open(VISITOR_LOG_FILE, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            for line in lines[-limit:]:
+                try:
+                    entries.append(_json.loads(line))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    entries.reverse()
+    return entries
 
 def get_visitor_count():
     if os.path.exists(COUNTER_FILE):
@@ -627,9 +676,10 @@ HTML_TEMPLATE = """
 
 <script>
     window.addEventListener('DOMContentLoaded', () => {
-        const clientIp = "{{ request.remote_addr }}";
+        const clientIp = "{{ real_ip }}";
+        const clientLocation = "{{ real_location }}";
         const box = document.createElement('div');
-        box.innerHTML = '🦅 Eagle Eye Radar<br><span style="font-size: 11px; color: #94a3b8;">Bağlantı IP: ' + clientIp + '</span>';
+        box.innerHTML = '🦅 Eagle Eye Radar<br><span style="font-size: 11px; color: #94a3b8;">IP: ' + clientIp + ' &bull; ' + clientLocation + '</span>';
         box.style.position = 'fixed';
         box.style.top = '15px';
         box.style.left = '50%';
@@ -828,6 +878,27 @@ def get_weather_data(is_night):
     _weather_cache["ts"] = now
     return weather_list
 
+@app.route("/ziyaretciler")
+def ziyaretciler():
+    entries = get_visitor_log(200)
+    rows = ""
+    for e in entries:
+        rows += f"<tr><td style='padding:8px;border-bottom:1px solid #333;'>{e.get('time','')}</td><td style='padding:8px;border-bottom:1px solid #333;'>{e.get('ip','')}</td><td style='padding:8px;border-bottom:1px solid #333;'>{e.get('location','')}</td><td style='padding:8px;border-bottom:1px solid #333;font-size:12px;color:#999;'>{e.get('user_agent','')[:80]}</td></tr>"
+    html = f"""
+    <html><head><meta charset="utf-8"><title>Ziyaretçi Kayıtları</title>
+    <style>
+        body {{ background:#0b0f1a; color:#e5e7eb; font-family:sans-serif; padding:20px; }}
+        table {{ width:100%; border-collapse:collapse; }}
+        th {{ text-align:left; padding:8px; border-bottom:2px solid #38bdf8; color:#38bdf8; }}
+    </style></head><body>
+    <h2>🦅 Eagle Eye - Ziyaretçi Kayıtları (son {len(entries)})</h2>
+    <table><tr><th>Tarih/Saat</th><th>IP</th><th>Konum</th><th>Tarayıcı</th></tr>
+    {rows}
+    </table>
+    </body></html>
+    """
+    return html
+
 @app.route("/")
 def index():
     global visitor_count
@@ -836,10 +907,19 @@ def index():
     visitor_count = get_visitor_count()
     
     has_visited = request.cookies.get('eagle_eye_visited')
+    ua_check = request.headers.get('User-Agent', '').lower()
+    is_bot_check = any(b in ua_check for b in ['bot', 'crawl', 'spider', 'render', 'uptime', 'ping', 'axios', 'postman', 'go-http-client', 'head'])
+
+    real_ip = user_ip.split(',')[0].strip()
+    real_location = get_location_from_ip(real_ip)
+
     if not has_visited:
         visitor_count = increment_visitor_count()
     else:
         visitor_count = get_visitor_count()
+
+    if not is_bot_check:
+        log_visitor(real_ip, request.headers.get('User-Agent', ''))
 
     current_hour = datetime.now(TR_TZ).replace(tzinfo=None).hour
     is_night = current_hour >= 19 or current_hour < 6
@@ -894,6 +974,8 @@ def index():
     res = make_response(render_template_string(
         HTML_TEMPLATE,
         visitor_count=visitor_count,
+        real_ip=real_ip,
+        real_location=real_location,
         weather_list=weather_list,
         earthquakes=earthquakes,
         map_quakes=map_quakes,
