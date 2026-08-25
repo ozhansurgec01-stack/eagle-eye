@@ -139,6 +139,10 @@ def get_location_from_ip(ip):
 
 def log_visitor(ip, user_agent):
     try:
+        # Botları ve uptime botları loglamayalım
+        ua_lower = user_agent.lower()
+        if "bot" in ua_lower or "crawler" in ua_lower or "spider" in ua_lower or "uptime" in ua_lower or "go-http-client" in ua_lower:
+            return
         location = get_location_from_ip(ip)
         entry = {
             "ip": ip,
