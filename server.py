@@ -741,21 +741,14 @@ setInterval(updateMarketPrices, 60000);
 def api_gold_prices():
     return jsonify(get_live_market_data())
 
-@app.route("/")
-def index():
-    global visitor_count
-    user_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    
-    visitor_count = get_visitor_count()
-    
-    has_visited = request.cookies.get('eagle_eye_visited')
-    if not has_visited:
-        visitor_count = increment_visitor_count()
-    else:
-        visitor_count = get_visitor_count()
 
-    current_hour = datetime.now(TR_TZ).replace(tzinfo=None).hour
-    is_night = current_hour >= 19 or current_hour < 6
+_weather_cache = {"data": None, "ts": 0}
+WEATHER_CACHE_TTL = 600  # saniye (10 dakika)
+
+def get_weather_data(is_night):
+    now = _time.time()
+    if _weather_cache["data"] is not None and (now - _weather_cache["ts"]) < WEATHER_CACHE_TTL:
+        return _weather_cache["data"]
 
     weather_list = []
     cities = [
@@ -830,6 +823,28 @@ def index():
         except Exception as e:
             print(f"HAVA DURUMU HATASI ({c['name']}): {e}")
 
+
+    _weather_cache["data"] = weather_list
+    _weather_cache["ts"] = now
+    return weather_list
+
+@app.route("/")
+def index():
+    global visitor_count
+    user_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    
+    visitor_count = get_visitor_count()
+    
+    has_visited = request.cookies.get('eagle_eye_visited')
+    if not has_visited:
+        visitor_count = increment_visitor_count()
+    else:
+        visitor_count = get_visitor_count()
+
+    current_hour = datetime.now(TR_TZ).replace(tzinfo=None).hour
+    is_night = current_hour >= 19 or current_hour < 6
+
+    weather_list = get_weather_data(is_night)
     earthquakes = []
     map_quakes = []
     try:
