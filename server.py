@@ -1,5 +1,6 @@
 
 import urllib.request
+import urllib.error
 import json as _json
 import time as _time
 
@@ -26,7 +27,7 @@ _DEFAULT_DATA = {
 
 _cache = {"data": None, "ts": 0}
 _last_good = {"data": None}
-CACHE_TTL = 60  # saniye
+CACHE_TTL = 300  # saniye (5 dakika, rate limit'e karsi)
 
 def _fetch_market_data_live():
     data = dict(_last_good["data"] or _DEFAULT_DATA)
@@ -56,22 +57,30 @@ def _fetch_market_data_live():
 
     try:
         req2 = urllib.request.Request(
-            "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd",
+            "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
             headers={"User-Agent": "Mozilla/5.0"}
         )
         with urllib.request.urlopen(req2, timeout=6) as resp2:
             j2 = _json.loads(resp2.read().decode("utf-8"))
-        data["btc"] = _fmt_usd(j2["bitcoin"]["usd"])
+        data["btc"] = _fmt_usd(float(j2["price"]))
     except Exception as e:
-        print("CoinGecko BTC verisi alınamadı, önceki/varsayılan kullanılıyor:", e)
+        print("Binance BTC verisi alınamadı, önceki/varsayılan kullanılıyor:", e)
 
     try:
         req3 = urllib.request.Request(
             "https://api.coingecko.com/api/v3/global",
             headers={"User-Agent": "Mozilla/5.0"}
         )
-        with urllib.request.urlopen(req3, timeout=6) as resp3:
-            j3 = _json.loads(resp3.read().decode("utf-8"))
+        try:
+            with urllib.request.urlopen(req3, timeout=6) as resp3:
+                j3 = _json.loads(resp3.read().decode("utf-8"))
+        except urllib.error.HTTPError as he:
+            if he.code == 429:
+                _time.sleep(2)
+                with urllib.request.urlopen(req3, timeout=6) as resp3:
+                    j3 = _json.loads(resp3.read().decode("utf-8"))
+            else:
+                raise
         dominance = j3["data"]["market_cap_percentage"]["btc"]
         data["btc_dominance"] = f"{dominance:.1f}%"
     except Exception as e:
