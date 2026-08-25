@@ -860,7 +860,8 @@ def get_weather_data(is_night):
         {"name": "Diyarbakır", "lat": 37.9144, "lon": 40.2306},
         {"name": "Erzurum", "lat": 39.9043, "lon": 41.2679},
         {"name": "Samsun", "lat": 41.2867, "lon": 36.33},
-        {"name": "Van", "lat": 38.4891, "lon": 43.4089}
+        {"name": "Van", "lat": 38.4891, "lon": 43.4089},
+        {"name": "Bayburt", "lat": 40.2552, "lon": 40.2249},
     ]
     
     tr_translations = {
