@@ -281,16 +281,13 @@ HTML_TEMPLATE = """
         .svg-rain-drop { animation: pulseDrop 0.9s ease-in-out infinite; }
 
         .map-icon-box {
-            background: var(--marker-bg);
-            border: 1.5px solid var(--marker-border);
             color: var(--marker-color);
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
+            width: 16px;
+            height: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 8px rgba(0,0,0,0.4);
+            filter: drop-shadow(0 0 3px rgba(0,0,0,0.6));
         }
 
         .quake-card {
@@ -643,8 +640,8 @@ HTML_TEMPLATE = """
                 var customIcon = L.divIcon({
                     html: customHtml,
                     className: 'custom-weather-marker',
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12]
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8]
                 });
 
                 L.marker([w.lat, w.lon], { icon: customIcon })
