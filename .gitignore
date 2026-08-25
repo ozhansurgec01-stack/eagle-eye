@@ -5,3 +5,7 @@ backups/
 .DS_Store
 *.py.bak*
 truncgil.json
+
+# Eagle Eye local/runtime files
+*.bak
+visitor_log.jsonl
