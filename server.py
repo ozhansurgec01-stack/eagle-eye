@@ -957,10 +957,7 @@ def get_weather_data(is_night):
                     })
                 except Exception as e:
                     print(f"HAVA DURUMU HATASI ({c['name']}): {e}")
-        else:
-            print(f"HAVA DURUMU HATASI (toplu istek): status={res.status_code}")
-    except Exception as e:
-        print(f"HAVA DURUMU HATASI (toplu istek): {e}")
+ 
 
     if weather_list:
         _weather_cache["data"] = weather_list
