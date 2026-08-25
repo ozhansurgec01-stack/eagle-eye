@@ -1142,7 +1142,7 @@ def index():
     except:
         pass
 
-    return render_template_string(HTML_TEMPLATE, weather_list=weather_list, meteors=meteors, map_meteors=map_meteors, earthquakes=earthquakes[:6], map_quakes=map_quakes, events=events, visitor_count=visitor_count)
+    return render_template_string(HTML_TEMPLATE, real_ip=user_ip, weather_list=weather_list, meteors=meteors, map_meteors=map_meteors, earthquakes=earthquakes[:6], map_quakes=map_quakes, events=events, visitor_count=visitor_count)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
