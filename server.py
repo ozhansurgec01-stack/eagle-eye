@@ -245,7 +245,7 @@ HTML_TEMPLATE = """
         .map-container { width: 100%; height: 45vh; flex-shrink: 0; border-bottom: 2px solid var(--card-border); position: relative; }
         #map { width: 100%; height: 100%; position: absolute; top: 0; bottom: 0; left: 0; right: 0; background: #010409; }
         
-        .leaflet-tile-pane { filter: contrast(1.35) saturate(1.6) brightness(0.94); }
+        .leaflet-tile-pane { filter: contrast(1.45) saturate(1.8) brightness(1.05); }
         .neon-map .leaflet-tile-pane {
             filter: invert(95%) hue-rotate(190deg) saturate(320%) brightness(120%) contrast(180%);
         }
