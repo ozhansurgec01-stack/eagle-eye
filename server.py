@@ -891,7 +891,7 @@ def get_weather_data(is_night):
                 lon = c['lon']
                 name = c.get('name', 'Bilinmeyen')
                 u = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={owm_key}&units=metric&lang=tr"
-                r = requests.get(u, timeout=5)
+                r = requests.get(owm_url, timeout=5)
                 if r.status_code == 200:
                     d = r.json()
                     temp = str(round(d['main']['temp']))
