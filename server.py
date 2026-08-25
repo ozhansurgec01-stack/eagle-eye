@@ -200,15 +200,9 @@ def increment_visitor_count():
     if is_bot:
         return get_visitor_count()
     try:
-        r = requests.get(f"{COUNTER_API_BASE}/up", timeout=5)
-        if r.status_code == 200:
-            count = r.json()["data"]["up_count"]
-            try:
-                with open(COUNTER_FILE, "w") as f:
-                    f.write(str(count))
-            except:
-                pass
-            return count
+        requests.get(f"{COUNTER_API_BASE}/up", timeout=5)
+        _time.sleep(1)
+        return get_visitor_count()
     except Exception as e:
         print("Sayac artirma hatasi:", e)
     return get_visitor_count()
@@ -1019,14 +1013,11 @@ def index():
     
     # Yerel test IP'lerinde sayacı arttırma
     is_local = user_ip in ["127.0.0.1", "localhost"] or user_ip.startswith("192.168.")
-    print(f"DEBUG: user_ip={user_ip} is_local={is_local} in_visited={user_ip in visited_ips} in_history={user_ip in visitor_ips_history}")
     if user_ip not in visited_ips:
         visited_ips.add(user_ip)
         if user_ip not in visitor_ips_history and not is_local:
             visitor_ips_history.add(user_ip)
-            print(f"DEBUG: increment cagriliyor, ip={user_ip}")
             visitor_count = increment_visitor_count()
-            print(f"DEBUG: yeni sayac degeri={visitor_count}")
 
     current_hour = datetime.now().hour
     is_night = current_hour >= 19 or current_hour < 6
