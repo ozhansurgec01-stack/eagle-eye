@@ -887,6 +887,10 @@ def get_weather_data(is_night):
             except requests.exceptions.Timeout:
                 res = requests.get(url, timeout=10)
             if res.status_code == 200:
+                pass
+            if res.status_code != 200:
+                print(f"HAVA DURUMU HATASI ({c['name']}): status={res.status_code}")
+            if res.status_code == 200:
                 data = res.json()
                 current = data['current']
                 temp = str(round(current['temperature_2m']))
