@@ -245,7 +245,7 @@ HTML_TEMPLATE = """
         .map-container { width: 100%; height: 45vh; flex-shrink: 0; border-bottom: 2px solid var(--card-border); position: relative; }
         #map { width: 100%; height: 100%; position: absolute; top: 0; bottom: 0; left: 0; right: 0; background: #010409; }
         
-        .leaflet-tile-pane { filter: contrast(1.45) saturate(1.8) brightness(1.05); }
+        .leaflet-tile-pane { filter: contrast(1.2) saturate(1.4) brightness(1.0); }
         .neon-map .leaflet-tile-pane {
             filter: invert(95%) hue-rotate(190deg) saturate(320%) brightness(120%) contrast(180%);
         }
@@ -640,15 +640,14 @@ HTML_TEMPLATE = """
 
         var weatherData = {{ weather_list | safe }};
 
-        L.marker([40.2552, 40.2249], { icon: L.divIcon({ html: '<div style="font-size:11px;font-weight:600;color:#334155;white-space:nowrap;">Bayburt</div>', className: '', iconSize: [60,14], iconAnchor: [30,7] }) }).addTo(map);
         weatherData.forEach(function(w) {
             if(w.lat && w.lon) {
-                var customHtml = '<div class="map-icon-box">' + w.map_svg + '</div>';
+                var customHtml = '<div class="map-icon-box" style="background:rgba(255,255,255,0.85);padding:3px;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;">' + w.map_svg + '</div>';
                 var customIcon = L.divIcon({
                     html: customHtml,
                     className: 'custom-weather-marker',
-                    iconSize: [16, 16],
-                    iconAnchor: [8, 8]
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14]
                 });
 
                 L.marker([w.lat, w.lon], { icon: customIcon })
@@ -866,6 +865,7 @@ def get_weather_data(is_night):
         {"name": "Samsun", "lat": 41.2867, "lon": 36.33},
         {"name": "Van", "lat": 38.4891, "lon": 43.4089},
         {"name": "Bayburt", "lat": 40.2552, "lon": 40.2249},
+        {"name": "Bayburt", "lat": 40.2552, "lon": 40.2249},
     ]
     
     tr_translations = {
@@ -917,7 +917,7 @@ def get_weather_data(is_night):
         for uc in updated_cities:
             desc = uc['desc']
             svg_icon = sun_svg if not is_night else moon_svg
-            map_svg = sun_svg if not is_night else moon_svg
+            map_svg = map_sun_svg if not is_night else map_moon_svg
             
             desc_lower = desc.lower()
             if "yağmur" in desc_lower or "sağanak" in desc_lower or "rain" in desc_lower:
@@ -996,14 +996,13 @@ def index():
     
     visitor_count = get_visitor_count()
     
+    # Yerel test IP'lerinde sayacı arttırma
+    is_local = user_ip in ["127.0.0.1", "localhost"] or user_ip.startswith("192.168.")
     if user_ip not in visited_ips:
         visited_ips.add(user_ip)
-        if user_ip not in visitor_ips_history:
+        if user_ip not in visitor_ips_history and not is_local:
             visitor_ips_history.add(user_ip)
-            if visitor_count == 1 and len(visitor_ips_history) == 1:
-                pass
-            else:
-                visitor_count = increment_visitor_count()
+            visitor_count = get_visitor_count()
 
     current_hour = datetime.now().hour
     is_night = current_hour >= 19 or current_hour < 6
@@ -1019,7 +1018,8 @@ def index():
         {"name": "Diyarbakır", "lat": 37.9144, "lon": 40.2306},
         {"name": "Erzurum", "lat": 39.9043, "lon": 41.2679},
         {"name": "Samsun", "lat": 41.2867, "lon": 36.33},
-        {"name": "Van", "lat": 38.4891, "lon": 43.4089}
+        {"name": "Van", "lat": 38.4891, "lon": 43.4089},
+        {"name": "Bayburt", "lat": 40.2552, "lon": 40.2249}
     ]
     
     tr_translations = {
@@ -1037,10 +1037,10 @@ def index():
     rain_svg = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path class="svg-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><line class="svg-rain-drop" x1="8" y1="22" x2="8" y2="24" stroke="#ffffff"></line><line class="svg-rain-drop" x1="12" y1="22" x2="12" y2="24" stroke="#ffffff" style="animation-delay: 0.3s;"></line><line class="svg-rain-drop" x1="16" y1="22" x2="16" y2="24" stroke="#ffffff" style="animation-delay: 0.6s;"></line></svg>'''
     
     map_sun_svg = '''<svg class="svg-sun" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="M4.93 4.93l1.41 1.41"></path><path d="M17.66 17.66l1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="M6.34 17.66l-1.41 1.41"></path><path d="M19.07 4.93l-1.41 1.41"></path></svg>'''
-    map_moon_svg = '''<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>'''
+    map_moon_svg = '''<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>'''
     
-    map_cloud_svg = '''<svg class="svg-cloud" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>'''
-    map_rain_svg = '''<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path class="svg-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><line class="svg-rain-drop" x1="8" y1="22" x2="8" y2="24" stroke="#ffffff"></line><line class="svg-rain-drop" x1="12" y1="22" x2="12" y2="24" stroke="#ffffff" style="animation-delay: 0.3s;"></line><line class="svg-rain-drop" x1="16" y1="22" x2="16" y2="24" stroke="#ffffff" style="animation-delay: 0.6s;"></line></svg>'''
+    map_cloud_svg = '''<svg class="svg-cloud" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>'''
+    map_rain_svg = '''<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="3.5" fill="#38bdf8" fill-opacity="0.3" stroke-linecap="round" stroke-linejoin="round"><path class="svg-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><line class="svg-rain-drop" x1="8" y1="22" x2="8" y2="24" stroke="#2563eb"></line><line class="svg-rain-drop" x1="12" y1="22" x2="12" y2="24" stroke="#2563eb" style="animation-delay: 0.3s;"></line><line class="svg-rain-drop" x1="16" y1="22" x2="16" y2="24" stroke="#2563eb" style="animation-delay: 0.6s;"></line></svg>'''
 
     for c in cities:
         try:
