@@ -880,18 +880,17 @@ def get_weather_data(is_night):
     humidity_svg = '''<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>'''
 
     try:
-        lat_str = ",".join(str(c['lat']) for c in cities)
-        lon_str = ",".join(str(c['lon']) for c in cities)
-                        # OpenWeatherMap API Entegrasyonu ile Şehir Hava Durumları Çekme
+        # OpenWeatherMap API Entegrasyonu ile Şehir Hava Durumları Çekme
         owm_key = "F101d05649baa9df699647cef10546ae"
         updated_cities = []
+        
         for c in cities:
             try:
                 lat = c.get('lat')
                 lon = c.get('lon')
                 name = c.get('name', 'Bilinmeyen')
                 if lat is not None and lon is not None:
-                    owm_url = "https://api.openweathermap.org/data/2.5/weather?lat=" + str(lat) + "&lon=" + str(lon) + "&appid=" + owm_key + "&units=metric&lang=tr"
+                    owm_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={owm_key}&units=metric&lang=tr"
                     r = requests.get(owm_url, timeout=5)
                     if r.status_code == 200:
                         d = r.json()
@@ -901,68 +900,49 @@ def get_weather_data(is_night):
                         
                         updated_cities.append({
                             "name": name,
+                            "lat": lat,
+                            "lon": lon,
                             "temp": temp,
                             "humidity": humidity,
                             "desc": wdesc
                         })
             except Exception as e:
                 print("OWM Fetch Error:", e)
-        cities_weather_data = updated_cities
-        try:
-            res = requests.get(url, timeout=8)
-        except requests.exceptions.Timeout:
-            res = requests.get(url, timeout=10)
 
-        if res.status_code == 200:
-            data_list = res.json()
-            if isinstance(data_list, dict):
-                data_list = [data_list]
+        # OpenWeatherMap verilerini şablona ve ikonlara uyarlayalım
+        for uc in updated_cities:
+            desc = uc['desc']
+            svg_icon = sun_svg if not is_night else moon_svg
+            map_svg = sun_svg if not is_night else moon_svg
+            
+            desc_lower = desc.lower()
+            if "yağmur" in desc_lower or "sağanak" in desc_lower or "rain" in desc_lower:
+                svg_icon = rain_svg
+                map_svg = rain_svg
+            elif "bulut" in desc_lower or "pus" in desc_lower or "kapalı" in desc_lower or "cloud" in desc_lower:
+                svg_icon = cloud_svg
+                map_svg = cloud_svg
 
-            for c, data in zip(cities, data_list):
-                try:
-                    current = data['current']
-                    temp = str(round(current['temperature_2m']))
-                    humidity = str(current['relative_humidity_2m'])
-                    wcode = current['weather_code']
+            weather_list.append({
+                "city": uc['name'],
+                "lat": uc['lat'],
+                "lon": uc['lon'],
+                "temp": uc['temp'],
+                "humidity": uc['humidity'],
+                "desc": desc,
+                "svg_icon": svg_icon,
+                "map_svg": map_svg,
+                "humidity_svg": humidity_svg
+            })
 
-                    wmo_map = {
-                        0: ("clear", "Açık"), 1: ("sunny", "Güneşli"), 2: ("partly cloudy", "Parçalı Bulutlu"),
-                        3: ("cloudy", "Bulutlu"), 45: ("mist", "Puslu"), 48: ("mist", "Puslu"),
-                        51: ("light rain", "Hafif Yağmurlu"), 53: ("moderate rain", "Yağmurlu"),
-                        55: ("moderate rain", "Yağmurlu"), 61: ("light rain", "Hafif Yağmurlu"),
-                        63: ("moderate rain", "Yağmurlu"), 65: ("heavy rain", "Şiddetli Yağmurlu"),
-                        71: ("light rain", "Karlı"), 73: ("moderate rain", "Karlı"), 75: ("heavy rain", "Şiddetli Karlı"),
-                        80: ("light rain shower", "Sağanak Yağmurlu"), 81: ("moderate rain", "Sağanak Yağmurlu"),
-                        82: ("heavy rain", "Şiddetli Sağanak"), 95: ("thunderstorm", "Fırtınalı"),
-                        96: ("thunderstorm", "Fırtınalı"), 99: ("thunderstorm", "Fırtınalı")
-                    }
-                    weather_desc_en, desc = wmo_map.get(wcode, ("clear", "Açık"))
-                    if is_night and desc == "Güneşli":
-                        desc = "Açık"
+        if weather_list:
+            _weather_cache["data"] = weather_list
+        _weather_cache["ts"] = now
+        return weather_list
 
-                    svg_icon = sun_svg if not is_night else moon_svg
-                    map_svg = sun_svg if not is_night else moon_svg
-
-                    if "rain" in weather_desc_en or "shower" in weather_desc_en:
-                        svg_icon = rain_svg
-                        map_svg = rain_svg
-                    elif "cloud" in weather_desc_en or "overcast" in weather_desc_en or "mist" in weather_desc_en:
-                        svg_icon = cloud_svg
-                        map_svg = cloud_svg
-
-                    weather_list.append({
-                        "city": c['name'], "lat": c['lat'], "lon": c['lon'],
-                        "temp": temp, "humidity": humidity, "desc": desc,
-                        "svg_icon": svg_icon, "map_svg": map_svg, "humidity_svg": humidity_svg
-                    })
-                except Exception as e:
-                    print(f"HAVA DURUMU HATASI ({c['name']}): {e}")
- 
-
-    if weather_list:
-        _weather_cache["data"] = weather_list
-    _weather_cache["ts"] = now
-    return weather_list
+    except Exception as e:
+        print("Hava durumu genel hata:", e)
+        return weather_list
 
 ZIYARETCI_SIFRE = "eagle2026"  # bunu istediğin gibi değiştirebilirsin
 
