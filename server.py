@@ -65,6 +65,18 @@ def _fetch_market_data_live():
     except Exception as e:
         print("CoinGecko BTC verisi alınamadı, önceki/varsayılan kullanılıyor:", e)
 
+    try:
+        req3 = urllib.request.Request(
+            "https://api.coingecko.com/api/v3/global",
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        with urllib.request.urlopen(req3, timeout=6) as resp3:
+            j3 = _json.loads(resp3.read().decode("utf-8"))
+        dominance = j3["data"]["market_cap_percentage"]["btc"]
+        data["btc_dominance"] = f"{dominance:.1f}%"
+    except Exception as e:
+        print("CoinGecko BTC dominans verisi alınamadı, önceki/varsayılan kullanılıyor:", e)
+
     _last_good["data"] = data
     return data
 
@@ -283,6 +295,8 @@ HTML_TEMPLATE = """
         <div class="ticker-content">
             <span>🪙 BİTCOİN: <strong id="t-btc" class="btc">77.452,50 $</strong></span>
             <span class="dot">•</span>
+            <span>📊 BTC DOMİNANS: <strong id="t-btcdom" class="btc">--%</strong></span>
+            <span class="dot">•</span>
             <span>🟡 ONS ALTIN: <strong id="t-ons" class="ons">4.603,11 $</strong></span>
             <span class="dot">•</span>
             <span>🥇 GRAM ALTIN: <strong id="t-gram" class="gold">7.181,65 ₺</strong></span>
@@ -299,6 +313,8 @@ HTML_TEMPLATE = """
 
         <div class="ticker-content">
             <span>🪙 BİTCOİN: <strong id="t-btc" class="btc">77.452,50 $</strong></span>
+            <span class="dot">•</span>
+            <span>📊 BTC DOMİNANS: <strong id="t-btcdom" class="btc">--%</strong></span>
             <span class="dot">•</span>
             <span>🟡 ONS ALTIN: <strong id="t-ons" class="ons">4.603,11 $</strong></span>
             <span class="dot">•</span>
@@ -649,6 +665,7 @@ async function updateMarketPrices() {
 
         const map = {
             "t-btc": data.btc,
+            "t-btcdom": data.btc_dominance,
             "t-ons": data.ons,
             "t-gram": data.gram,
             "t-ayar22": data.ayar22,
