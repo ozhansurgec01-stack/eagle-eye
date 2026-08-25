@@ -986,7 +986,7 @@ def ziyaretciler():
 @app.route("/")
 def index():
     global visitor_count
-    user_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    user_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
     
     visitor_count = get_visitor_count()
     
