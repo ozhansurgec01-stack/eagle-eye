@@ -882,31 +882,31 @@ def get_weather_data(is_night):
     try:
         lat_str = ",".join(str(c['lat']) for c in cities)
         lon_str = ",".join(str(c['lon']) for c in cities)
-                # OpenWeatherMap API Entegrasyonu ile Şehir Hava Durumları Çekme
+                        # OpenWeatherMap API Entegrasyonu ile Şehir Hava Durumları Çekme
         owm_key = "F101d05649baa9df699647cef10546ae"
         updated_cities = []
         for c in cities:
             try:
-                lat = c['lat']
-                lon = c['lon']
+                lat = c.get('lat')
+                lon = c.get('lon')
                 name = c.get('name', 'Bilinmeyen')
-                u = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={owm_key}&units=metric&lang=tr"
-                r = requests.get(owm_url, timeout=5)
-                if r.status_code == 200:
-                    d = r.json()
-                    temp = str(round(d['main']['temp']))
-                    humidity = str(d['main']['humidity'])
-                    wdesc = d['weather'][0]['description'].capitalize()
-                    
-                    updated_cities.append({
-                        "name": name,
-                        "temp": temp,
-                        "humidity": humidity,
-                        "desc": wdesc
-                    })
+                if lat is not None and lon is not None:
+                    owm_url = "https://api.openweathermap.org/data/2.5/weather?lat=" + str(lat) + "&lon=" + str(lon) + "&appid=" + owm_key + "&units=metric&lang=tr"
+                    r = requests.get(owm_url, timeout=5)
+                    if r.status_code == 200:
+                        d = r.json()
+                        temp = str(round(d['main']['temp']))
+                        humidity = str(d['main']['humidity'])
+                        wdesc = d['weather'][0]['description'].capitalize()
+                        
+                        updated_cities.append({
+                            "name": name,
+                            "temp": temp,
+                            "humidity": humidity,
+                            "desc": wdesc
+                        })
             except Exception as e:
                 print("OWM Fetch Error:", e)
-        # Elde edilen yeni listeyi ana değişkene aktaralım
         cities_weather_data = updated_cities
         try:
             res = requests.get(url, timeout=8)
