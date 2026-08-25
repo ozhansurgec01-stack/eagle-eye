@@ -171,7 +171,21 @@ def get_visitor_log(limit=100):
     entries.reverse()
     return entries
 
+COUNTER_API_BASE = "https://api.counterapi.dev/v2/eagle-eye-dw3c-visitors/hero-counter"
+
 def get_visitor_count():
+    try:
+        r = requests.get(COUNTER_API_BASE, timeout=5)
+        if r.status_code == 200:
+            count = r.json()["data"]["up_count"]
+            try:
+                with open(COUNTER_FILE, "w") as f:
+                    f.write(str(count))
+            except:
+                pass
+            return count
+    except Exception as e:
+        print("Sayac okuma hatasi:", e)
     if os.path.exists(COUNTER_FILE):
         try:
             with open(COUNTER_FILE, "r") as f:
@@ -185,13 +199,19 @@ def increment_visitor_count():
     is_bot = any(b in ua for b in ['bot', 'crawl', 'spider', 'render', 'uptime', 'ping', 'axios', 'postman', 'go-http-client', 'head'])
     if is_bot:
         return get_visitor_count()
-    count = get_visitor_count() + 1
     try:
-        with open(COUNTER_FILE, "w") as f:
-            f.write(str(count))
-    except:
-        pass
-    return count
+        r = requests.get(f"{COUNTER_API_BASE}/up", timeout=5)
+        if r.status_code == 200:
+            count = r.json()["data"]["up_count"]
+            try:
+                with open(COUNTER_FILE, "w") as f:
+                    f.write(str(count))
+            except:
+                pass
+            return count
+    except Exception as e:
+        print("Sayac artirma hatasi:", e)
+    return get_visitor_count()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -1003,7 +1023,7 @@ def index():
         visited_ips.add(user_ip)
         if user_ip not in visitor_ips_history and not is_local:
             visitor_ips_history.add(user_ip)
-            visitor_count = get_visitor_count()
+            visitor_count = increment_visitor_count()
 
     current_hour = datetime.now().hour
     is_night = current_hour >= 19 or current_hour < 6
