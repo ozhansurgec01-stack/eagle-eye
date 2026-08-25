@@ -68,23 +68,15 @@ def _fetch_market_data_live():
 
     try:
         req3 = urllib.request.Request(
-            "https://api.coingecko.com/api/v3/global",
+            "https://api.coinpaprika.com/v1/global",
             headers={"User-Agent": "Mozilla/5.0"}
         )
-        try:
-            with urllib.request.urlopen(req3, timeout=6) as resp3:
-                j3 = _json.loads(resp3.read().decode("utf-8"))
-        except urllib.error.HTTPError as he:
-            if he.code == 429:
-                _time.sleep(2)
-                with urllib.request.urlopen(req3, timeout=6) as resp3:
-                    j3 = _json.loads(resp3.read().decode("utf-8"))
-            else:
-                raise
-        dominance = j3["data"]["market_cap_percentage"]["btc"]
+        with urllib.request.urlopen(req3, timeout=6) as resp3:
+            j3 = _json.loads(resp3.read().decode("utf-8"))
+        dominance = j3["bitcoin_dominance_percentage"]
         data["btc_dominance"] = f"{dominance:.1f}%"
     except Exception as e:
-        print("CoinGecko BTC dominans verisi alınamadı, önceki/varsayılan kullanılıyor:", e)
+        print("CoinPaprika BTC dominans verisi alınamadı, önceki/varsayılan kullanılıyor:", e)
 
     _last_good["data"] = data
     return data
