@@ -616,6 +616,33 @@ HTML_TEMPLATE = """
             maxZoom: 19, attribution: '&copy; OpenStreetMap'
         }).addTo(map);
 
+        var rainLayer = null;
+        fetch('https://api.rainviewer.com/public/weather-maps.json')
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                var host = data.host;
+                var frames = data.radar.nowcast && data.radar.nowcast.length > 0 ? data.radar.nowcast : data.radar.past;
+                var path = frames[frames.length - 1].path;
+                rainLayer = L.tileLayer(host + path + '/256/{z}/{x}/{y}/2/1_1.png', {
+                    opacity: 0.6, zIndex: 400
+                }).addTo(map);
+            })
+            .catch(function(err) { console.log('RainViewer yuklenemedi:', err); });
+
+        function toggleRainLayer() {
+            var status = document.getElementById('rainStatus');
+            var btn = document.getElementById('rainToggleBtn');
+            if (rainLayer && map.hasLayer(rainLayer)) {
+                map.removeLayer(rainLayer);
+                if(status) status.innerText = '(KAPALI)';
+                if(btn) { btn.style.opacity = '1'; btn.style.background = '#dc2626'; }
+            } else {
+                map.addLayer(rainLayer);
+                if(status) status.innerText = '(AÇIK)';
+                if(btn) { btn.style.opacity = '1'; btn.style.background = '#0284c7'; }
+            }
+        }
+
         function toggleTheme() {
             var body = document.body;
             var mapDiv = document.getElementById('map');
