@@ -926,7 +926,8 @@ def get_weather_data(is_night):
             print(f"HAVA DURUMU HATASI ({c['name']}): {e}")
 
 
-    _weather_cache["data"] = weather_list
+    if weather_list:
+        _weather_cache["data"] = weather_list
     _weather_cache["ts"] = now
     return weather_list
 
