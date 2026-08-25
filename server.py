@@ -736,6 +736,47 @@ async function updateMarketPrices() {
 }
 updateMarketPrices();
 setInterval(updateMarketPrices, 60000);
+
+let lastSeenVisitorTime = null;
+async function checkNewVisitor() {
+    try {
+        let response = await fetch('/api/latest-visitor');
+        if (!response.ok) return;
+        let data = await response.json();
+        if (!data.time) return;
+
+        if (lastSeenVisitorTime === null) {
+            lastSeenVisitorTime = data.time;
+            return;
+        }
+
+        if (data.time !== lastSeenVisitorTime) {
+            lastSeenVisitorTime = data.time;
+            const box = document.createElement('div');
+            box.innerHTML = '👀 Yeni Ziyaretçi<br><span style="font-size: 11px; color: #94a3b8;">' + data.location + '</span>';
+            box.style.position = 'fixed';
+            box.style.top = '15px';
+            box.style.left = '50%';
+            box.style.transform = 'translateX(-50%)';
+            box.style.background = '#0f172a';
+            box.style.color = '#34d399';
+            box.style.padding = '10px 20px';
+            box.style.borderRadius = '20px';
+            box.style.zIndex = '999999';
+            box.style.fontSize = '13px';
+            box.style.fontWeight = 'bold';
+            box.style.textAlign = 'center';
+            box.style.boxShadow = '0 5px 15px rgba(0,0,0,0.4)';
+            box.style.border = '1px solid #34d399';
+            document.body.appendChild(box);
+            setTimeout(() => box.remove(), 5000);
+        }
+    } catch (e) {
+        console.log("Ziyaretçi kontrolü alınamadı:", e);
+    }
+}
+checkNewVisitor();
+setInterval(checkNewVisitor, 8000);
 </script>
 
 </body>
@@ -790,6 +831,14 @@ setInterval(updateMarketPrices, 60000);
 @app.route("/api/gold-prices")
 def api_gold_prices():
     return jsonify(get_live_market_data())
+
+@app.route("/api/latest-visitor")
+def api_latest_visitor():
+    entries = get_visitor_log(1)
+    if entries:
+        e = entries[0]
+        return jsonify({"time": e.get("time"), "location": e.get("location"), "ip": e.get("ip")})
+    return jsonify({})
 
 
 _weather_cache = {"data": None, "ts": 0}
