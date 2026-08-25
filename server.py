@@ -510,6 +510,9 @@ HTML_TEMPLATE = """
 
     <div class="header-bar">
         <div class="brand">🦅 EAGLE EYE v8.66</div>
+<button id="rainToggleBtn" onclick="toggleRainLayer()" class="nav-btn" style="background: #0284c7; color: white; border: none; padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+    🌧️ YAĞIŞ <span id="rainStatus" style="font-size: 9px; opacity: 0.9;">(AÇIK)</span>
+</button>
         <div class="header-right">
             <div class="clock-badge" id="liveClock">⏳ --:--:--</div>
             <div class="visitor-badge">
@@ -865,88 +868,59 @@ def get_weather_data(is_night):
         {"name": "Samsun", "lat": 41.2867, "lon": 36.33},
         {"name": "Van", "lat": 38.4891, "lon": 43.4089},
         {"name": "Bayburt", "lat": 40.2552, "lon": 40.2249},
-        {"name": "Bayburt", "lat": 40.2552, "lon": 40.2249},
     ]
-    
-    tr_translations = {
-        "sunny": "Güneşli", "clear": "Açık", "partly cloudy": "Parçalı Bulutlu",
-        "cloudy": "Bulutlu", "overcast": "Çok Bulutlu", "mist": "Puslu",
-        "patchy rain possible": "Bölgesel Yağmur İhtimali", "patchy rain nearby": "Yakınlarda Bölgesel Yağmur",
-        "light rain": "Hafif Yağmurlu", "moderate rain": "Yağmurlu", "heavy rain": "Şiddetli Yağmurlu",
-        "thunderstorm": "Fırtınalı", "light rain shower": "Hafif Yağmurlu Sağanak"
-    }
-    
+
     sun_svg = '''<svg class="svg-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="M4.93 4.93l1.41 1.41"></path><path d="M17.66 17.66l1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="M6.34 17.66l-1.41 1.41"></path><path d="M19.07 4.93l-1.41 1.41"></path></svg>'''
     moon_svg = '''<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>'''
     cloud_svg = '''<svg class="svg-cloud" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>'''
     rain_svg = '''<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path class="svg-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><line class="svg-rain-drop" x1="8" y1="22" x2="8" y2="24"></line><line class="svg-rain-drop" x1="12" y1="22" x2="12" y2="24" style="animation-delay: 0.3s;"></line><line class="svg-rain-drop" x1="16" y1="22" x2="16" y2="24" style="animation-delay: 0.6s;"></line></svg>'''
-
     humidity_svg = '''<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>'''
 
-    try:
-        # OpenWeatherMap API Entegrasyonu ile Şehir Hava Durumları Çekme
-        owm_key = "F101d05649baa9df699647cef10546ae"
-        updated_cities = []
-        
-        for c in cities:
+    owm_key = os.environ.get("OWM_API_KEY", "")
+    for c in cities:
+        try:
+            url = f"https://api.openweathermap.org/data/2.5/weather?lat={c['lat']}&lon={c['lon']}&appid={owm_key}&units=metric&lang=tr"
             try:
-                lat = c.get('lat')
-                lon = c.get('lon')
-                name = c.get('name', 'Bilinmeyen')
-                if lat is not None and lon is not None:
-                    owm_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={owm_key}&units=metric&lang=tr"
-                    r = requests.get(owm_url, timeout=5)
-                    if r.status_code == 200:
-                        d = r.json()
-                        temp = str(round(d['main']['temp']))
-                        humidity = str(d['main']['humidity'])
-                        wdesc = d['weather'][0]['description'].capitalize()
-                        
-                        updated_cities.append({
-                            "name": name,
-                            "lat": lat,
-                            "lon": lon,
-                            "temp": temp,
-                            "humidity": humidity,
-                            "desc": wdesc
-                        })
-            except Exception as e:
-                print("OWM Fetch Error:", e)
+                res = requests.get(url, timeout=8)
+            except requests.exceptions.Timeout:
+                res = requests.get(url, timeout=10)
 
-        # OpenWeatherMap verilerini şablona ve ikonlara uyarlayalım
-        for uc in updated_cities:
-            desc = uc['desc']
-            svg_icon = sun_svg if not is_night else moon_svg
-            map_svg = map_sun_svg if not is_night else map_moon_svg
-            
-            desc_lower = desc.lower()
-            if "yağmur" in desc_lower or "sağanak" in desc_lower or "rain" in desc_lower:
-                svg_icon = rain_svg
-                map_svg = rain_svg
-            elif "bulut" in desc_lower or "pus" in desc_lower or "kapalı" in desc_lower or "cloud" in desc_lower:
-                svg_icon = cloud_svg
-                map_svg = cloud_svg
+            if res.status_code == 200:
+                data = res.json()
+                temp = str(round(data['main']['temp']))
+                humidity = str(data['main']['humidity'])
+                owm_id = data['weather'][0]['id']
+                owm_main = data['weather'][0]['main'].lower()
+                desc = data['weather'][0]['description'].capitalize()
 
-            weather_list.append({
-                "city": uc['name'],
-                "lat": uc['lat'],
-                "lon": uc['lon'],
-                "temp": uc['temp'],
-                "humidity": uc['humidity'],
-                "desc": desc,
-                "svg_icon": svg_icon,
-                "map_svg": map_svg,
-                "humidity_svg": humidity_svg
-            })
+                if is_night and owm_id == 800:
+                    desc = "Açık"
 
-        if weather_list:
-            _weather_cache["data"] = weather_list
-        _weather_cache["ts"] = now
-        return weather_list
+                svg_icon = sun_svg if not is_night else moon_svg
+                map_svg = sun_svg if not is_night else moon_svg
 
-    except Exception as e:
-        print("Hava durumu genel hata:", e)
-        return weather_list
+                if "rain" in owm_main or "drizzle" in owm_main or "snow" in owm_main:
+                    svg_icon = rain_svg
+                    map_svg = rain_svg
+                elif "cloud" in owm_main or "mist" in owm_main or "fog" in owm_main or "haze" in owm_main:
+                    svg_icon = cloud_svg
+                    map_svg = cloud_svg
+
+                weather_list.append({
+                    "city": c['name'], "lat": c['lat'], "lon": c['lon'],
+                    "temp": temp, "humidity": humidity, "desc": desc,
+                    "svg_icon": svg_icon, "map_svg": map_svg, "humidity_svg": humidity_svg
+                })
+            else:
+                print(f"HAVA DURUMU HATASI ({c['name']}): status={res.status_code}")
+        except Exception as e:
+            print(f"HAVA DURUMU HATASI ({c['name']}): {e}")
+
+    if weather_list:
+        _weather_cache["data"] = weather_list
+    _weather_cache["ts"] = now
+    return weather_list
+
 
 ZIYARETCI_SIFRE = "eagle2026"  # bunu istediğin gibi değiştirebilirsin
 
