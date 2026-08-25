@@ -878,8 +878,26 @@ def get_weather_data(is_night):
     _weather_cache["ts"] = now
     return weather_list
 
+ZIYARETCI_SIFRE = "eagle2026"  # bunu istediğin gibi değiştirebilirsin
+
 @app.route("/ziyaretciler")
 def ziyaretciler():
+    girilen_sifre = request.args.get("sifre", "")
+    if girilen_sifre != ZIYARETCI_SIFRE:
+        return """
+        <html><head><meta charset="utf-8"><title>Giriş</title>
+        <style>
+            body { background:#0b0f1a; color:#e5e7eb; font-family:sans-serif; padding:40px; text-align:center; }
+            input { padding:10px; border-radius:8px; border:1px solid #38bdf8; background:#111827; color:#fff; font-size:16px; }
+            button { padding:10px 20px; border-radius:8px; border:none; background:#38bdf8; color:#111; font-weight:bold; margin-left:8px; font-size:16px; }
+        </style></head><body>
+        <h2>🦅 Eagle Eye - Giriş Gerekli</h2>
+        <form method="get">
+            <input type="password" name="sifre" placeholder="Şifre">
+            <button type="submit">Gir</button>
+        </form>
+        </body></html>
+        """
     entries = get_visitor_log(200)
     rows = ""
     for e in entries:
