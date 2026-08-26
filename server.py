@@ -1025,7 +1025,7 @@ def index():
         visitor_count = increment_visitor_count()
         is_new_real_visitor = True
 
-    current_hour = datetime.now().hour
+    current_hour = datetime.now(TR_TZ).hour
     is_night = current_hour >= 19 or current_hour < 6
 
     weather_list = []
