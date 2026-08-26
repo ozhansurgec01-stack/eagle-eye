@@ -1019,11 +1019,11 @@ def index():
     
     # Yerel test IP'lerinde sayacı arttırma
     is_local = user_ip in ["127.0.0.1", "localhost"] or user_ip.startswith("192.168.")
-    if not is_owner and user_ip not in visited_ips:
-        visited_ips.add(user_ip)
-        if user_ip not in visitor_ips_history and not is_local:
-            visitor_ips_history.add(user_ip)
-            visitor_count = increment_visitor_count()
+    has_visited_cookie = request.cookies.get("eagle_visited") == "1"
+    is_new_real_visitor = False
+    if not is_owner and not is_local and not has_visited_cookie:
+        visitor_count = increment_visitor_count()
+        is_new_real_visitor = True
 
     current_hour = datetime.now().hour
     is_night = current_hour >= 19 or current_hour < 6
@@ -1176,6 +1176,8 @@ def index():
     resp = make_response(render_template_string(HTML_TEMPLATE, real_ip=user_ip, real_location=real_location, weather_list=weather_list, meteors=meteors, map_meteors=map_meteors, earthquakes=earthquakes[:6], map_quakes=map_quakes, events=events, visitor_count=visitor_count))
     if is_owner_link:
         resp.set_cookie('eagle_owner', '1', max_age=365*24*60*60)
+    if is_new_real_visitor:
+        resp.set_cookie('eagle_visited', '1', max_age=365*24*60*60)
     return resp
 
 if __name__ == "__main__":
