@@ -1168,7 +1168,7 @@ def index():
     map_quakes = []
     try:
         q_url = "https://api.orhanaydogdu.com.tr/deprem/kandilli/live"
-        q_res = requests.get(q_url, timeout=3).json()
+        q_res = requests.get(q_url, timeout=5).json()
         if q_res.get("status"):
             for q in q_res.get("result", []):
                 mag = float(q.get("mag", 0))
@@ -1195,8 +1195,8 @@ def index():
                     if lat is not None and lng is not None:
                         earthquakes.append({"title": title, "date_str": str(date_val), "mag": mag, "depth": depth, "lat": lat, "lon": lng})
                         map_quakes.append({"lat": lat, "lon": lng, "mag": mag, "depth": depth, "title": title, "date_str": str(date_val)})
-    except:
-        pass
+    except Exception as e:
+        print("Deprem verisi alinamadi:", e)
 
     events = []
     try:
