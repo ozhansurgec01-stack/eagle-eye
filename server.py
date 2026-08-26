@@ -1167,36 +1167,31 @@ def index():
     earthquakes = []
     map_quakes = []
     try:
-        q_url = "https://api.orhanaydogdu.com.tr/deprem/kandilli/live"
-        q_res = requests.get(q_url, timeout=5).json()
-        if q_res.get("status"):
-            for q in q_res.get("result", []):
-                mag = float(q.get("mag", 0))
-                if mag >= 3.0:
-                    title = q.get("title")
-                    depth = q.get("depth", 0)
-                    date_val = "Güncel"
-                    for k, v in q.items():
-                        if isinstance(v, str) and (("-" in v and ":" in v) or ("." in v and ":" in v)) and len(v) > 10:
-                            date_val = v
-                            break
+        # Turkiye ve cevresi icin USGS API'si (whitelist dostu, resmi/global kaynak)
+        usgs_url = (
+            "https://earthquake.usgs.gov/fdsnws/event/1/query"
+            "?format=geojson&minmagnitude=3.0"
+            "&minlatitude=35.5&maxlatitude=42.5"
+            "&minlongitude=25.5&maxlongitude=45.0"
+            "&orderby=time&limit=20"
+        )
+        q_res = requests.get(usgs_url, timeout=5).json()
+        for feature in q_res.get("features", []):
+            props = feature.get("properties", {})
+            geom = feature.get("geometry", {})
+            coords = geom.get("coordinates", [])
+            if len(coords) >= 2:
+                lng, lat = coords[0], coords[1]
+                depth = coords[2] if len(coords) > 2 else 0
+                mag = props.get("mag", 0)
+                title = props.get("place", "Bilinmeyen konum")
+                time_ms = props.get("time", 0)
+                date_val = datetime.utcfromtimestamp(time_ms / 1000).strftime("%Y-%m-%d %H:%M:%S") if time_ms else "Güncel"
 
-                    lat, lng = None, None
-                    try:
-                        if q.get("lat") is not None: lat = float(q.get("lat"))
-                        if q.get("lng") is not None: lng = float(q.get("lng"))
-                        elif q.get("lon") is not None: lng = float(q.get("lon"))
-                        if (lat is None or lng is None) and "geojson" in q:
-                            coords = q["geojson"].get("coordinates", [])
-                            if len(coords) >= 2: lng, lat = float(coords[0]), float(coords[1])
-                    except:
-                        pass
-                    
-                    if lat is not None and lng is not None:
-                        earthquakes.append({"title": title, "date_str": str(date_val), "mag": mag, "depth": depth, "lat": lat, "lon": lng})
-                        map_quakes.append({"lat": lat, "lon": lng, "mag": mag, "depth": depth, "title": title, "date_str": str(date_val)})
+                earthquakes.append({"title": title, "date_str": date_val, "mag": mag, "depth": depth, "lat": lat, "lon": lng})
+                map_quakes.append({"lat": lat, "lon": lng, "mag": mag, "depth": depth, "title": title, "date_str": date_val})
     except Exception as e:
-        print("Deprem verisi alinamadi:", e)
+        print("Deprem verisi alinamadi (USGS):", e)
 
     events = []
     try:
