@@ -40,8 +40,12 @@ def _fetch_market_data_live():
         with urllib.request.urlopen(req, timeout=6) as resp:
             j = _json.loads(resp.read().decode("utf-8"))
 
-        if "gram-altin" in j:
-            data["gram"] = _fmt_try(_tr_to_float(j["gram-altin"]["Satış"]))
+            if "USD" in j:
+                data["usd"] = _fmt_try(_tr_to_float(j["USD"]["Satış"]))
+            if "EUR" in j:
+                data["eur"] = _fmt_try(_tr_to_float(j["EUR"]["Satış"]))
+            if "gram-altin" in j:
+                data["gram"] = _fmt_try(_tr_to_float(j["gram-altin"]["Satış"]))
         if "22-ayar-bilezik" in j:
             data["ayar22"] = _fmt_try(_tr_to_float(j["22-ayar-bilezik"]["Satış"]))
         if "ceyrek-altin" in j:
@@ -58,12 +62,16 @@ def _fetch_market_data_live():
     try:
         cg_key = os.environ.get("COINGECKO_API_KEY", "")
         req2 = urllib.request.Request(
-            f"https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&x_cg_demo_api_key={cg_key}",
+            f"https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,fetch-ai,storj&vs_currencies=usd,try&x_cg_demo_api_key={cg_key}",
             headers={"User-Agent": "Mozilla/5.0"}
         )
         with urllib.request.urlopen(req2, timeout=6) as resp2:
             j2 = _json.loads(resp2.read().decode("utf-8"))
         data["btc"] = _fmt_usd(float(j2["bitcoin"]["usd"]))
+        if "fetch-ai" in j2:
+            data["fet"] = _fmt_try(float(j2["fetch-ai"]["try"]))
+        if "storj" in j2:
+            data["storj"] = _fmt_try(float(j2["storj"]["try"]))
     except Exception as e:
         print("CoinGecko BTC verisi alınamadı, önceki/varsayılan kullanılıyor:", e)
 
@@ -367,7 +375,15 @@ HTML_TEMPLATE = """
     <div class="ticker-track">
 
         <div class="ticker-content">
+            <span>💵 DOLAR: <strong id="t-usd" class="gold">48,12 ₺</strong></span>
+            <span class="dot">•</span>
+            <span>💶 EURO: <strong id="t-eur" class="gold">56,17 ₺</strong></span>
+            <span class="dot">•</span>
             <span>🪙 BİTCOİN: <strong id="t-btc" class="btc">77.452,50 $</strong></span>
+            <span class="dot">•</span>
+            <span>🔮 FETCH.AI: <strong id="t-fet" class="gold">0,00 ₺</strong></span>
+            <span class="dot">•</span>
+            <span>📦 STORJ: <strong id="t-storj" class="gold">0,00 ₺</strong></span>
             <span class="dot">•</span>
             <span>📊 BTC DOMİNANS: <strong id="t-btcdom" class="btc">--%</strong></span>
             <span class="dot">•</span>
@@ -386,7 +402,15 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="ticker-content">
+            <span>💵 DOLAR: <strong id="t-usd" class="gold">48,12 ₺</strong></span>
+            <span class="dot">•</span>
+            <span>💶 EURO: <strong id="t-eur" class="gold">56,17 ₺</strong></span>
+            <span class="dot">•</span>
             <span>🪙 BİTCOİN: <strong id="t-btc" class="btc">77.452,50 $</strong></span>
+            <span class="dot">•</span>
+            <span>🔮 FETCH.AI: <strong id="t-fet" class="gold">0,00 ₺</strong></span>
+            <span class="dot">•</span>
+            <span>📦 STORJ: <strong id="t-storj" class="gold">0,00 ₺</strong></span>
             <span class="dot">•</span>
             <span>📊 BTC DOMİNANS: <strong id="t-btcdom" class="btc">--%</strong></span>
             <span class="dot">•</span>
@@ -429,7 +453,7 @@ HTML_TEMPLATE = """
     height:38px;
     align-items:center;
     white-space:nowrap;
-    animation:flexTickerScroll 30s linear infinite;
+    animation:flexTickerScroll 45s linear infinite;
     will-change:transform;
 }
 
@@ -770,7 +794,11 @@ async function updateMarketPrices() {
         let data = await response.json();
 
         const map = {
+            "t-usd": data.usd,
+            "t-eur": data.eur,
             "t-btc": data.btc,
+            "t-fet": data.fet,
+            "t-storj": data.storj,
             "t-btcdom": data.btc_dominance,
             "t-ons": data.ons,
             "t-gram": data.gram,
