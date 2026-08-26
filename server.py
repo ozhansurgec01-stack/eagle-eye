@@ -37,7 +37,7 @@ def _fetch_market_data_live():
             "https://finans.truncgil.com/today.json",
             headers={"User-Agent": "Mozilla/5.0"}
         )
-        with urllib.request.urlopen(req, timeout=6) as resp:
+        with urllib.request.urlopen(req, timeout=3) as resp:
             j = _json.loads(resp.read().decode("utf-8"))
 
             if "USD" in j:
@@ -65,7 +65,7 @@ def _fetch_market_data_live():
             f"https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,fetch-ai,storj&vs_currencies=usd,try&x_cg_demo_api_key={cg_key}",
             headers={"User-Agent": "Mozilla/5.0"}
         )
-        with urllib.request.urlopen(req2, timeout=6) as resp2:
+        with urllib.request.urlopen(req2, timeout=3) as resp2:
             j2 = _json.loads(resp2.read().decode("utf-8"))
         data["btc"] = _fmt_usd(float(j2["bitcoin"]["usd"]))
         if "fetch-ai" in j2:
@@ -81,7 +81,7 @@ def _fetch_market_data_live():
             f"https://api.coingecko.com/api/v3/global?x_cg_demo_api_key={cg_key}",
             headers={"User-Agent": "Mozilla/5.0"}
         )
-        with urllib.request.urlopen(req3, timeout=6) as resp3:
+        with urllib.request.urlopen(req3, timeout=3) as resp3:
             j3 = _json.loads(resp3.read().decode("utf-8"))
         dominance = j3["data"]["market_cap_percentage"]["btc"]
         data["btc_dominance"] = f"{dominance:.1f}%"
@@ -137,7 +137,7 @@ def get_location_from_ip(ip):
             f"http://ip-api.com/json/{ip}?fields=status,country,city,query",
             headers={"User-Agent": "Mozilla/5.0"}
         )
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        with urllib.request.urlopen(req, timeout=2) as resp:
             j = _json.loads(resp.read().decode("utf-8"))
         if j.get("status") == "success":
             city = j.get("city", "")
@@ -185,7 +185,7 @@ COUNTER_API_BASE = "https://api.counterapi.dev/v2/eagle-eye-dw3c-visitors/hero-c
 
 def get_visitor_count():
     try:
-        r = requests.get(COUNTER_API_BASE, timeout=5)
+        r = requests.get(COUNTER_API_BASE, timeout=2)
         if r.status_code == 200:
             count = r.json()["data"]["up_count"]
             try:
@@ -210,8 +210,7 @@ def increment_visitor_count():
     if is_bot:
         return get_visitor_count()
     try:
-        requests.get(f"{COUNTER_API_BASE}/up", timeout=5)
-        _time.sleep(1)
+        requests.get(f"{COUNTER_API_BASE}/up", timeout=2)
         return get_visitor_count()
     except Exception as e:
         print("Sayac artirma hatasi:", e)
@@ -958,9 +957,9 @@ def get_weather_data(is_night):
         try:
             url = f"https://api.openweathermap.org/data/2.5/weather?lat={c['lat']}&lon={c['lon']}&appid={owm_key}&units=metric&lang=tr"
             try:
-                res = requests.get(url, timeout=8)
+                res = requests.get(url, timeout=4)
             except requests.exceptions.Timeout:
-                res = requests.get(url, timeout=10)
+                res = requests.get(url, timeout=4)
 
             if res.status_code == 200:
                 data = res.json()
@@ -1102,7 +1101,7 @@ def index():
     for c in cities:
         try:
             encoded_city = urllib.parse.quote(c['name'])
-            r = requests.get(f"https://wttr.in/{encoded_city}?format=j1", timeout=3).json()
+            r = requests.get(f"https://wttr.in/{encoded_city}?format=j1", timeout=2).json()
             current = r["current_condition"][0]
             temp = current["temp_C"]
             humidity = current["humidity"]
@@ -1169,7 +1168,7 @@ def index():
     map_quakes = []
     try:
         q_url = "https://api.orhanaydogdu.com.tr/deprem/kandilli/live"
-        q_res = requests.get(q_url, timeout=5).json()
+        q_res = requests.get(q_url, timeout=3).json()
         if q_res.get("status"):
             for q in q_res.get("result", []):
                 mag = float(q.get("mag", 0))
