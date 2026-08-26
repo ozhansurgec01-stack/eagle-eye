@@ -1010,10 +1010,14 @@ def index():
     log_visitor(user_ip, request.headers.get('User-Agent', 'Bilinmiyor'))
     
     visitor_count = get_visitor_count()
+
+    is_owner_link = request.args.get("owner") == "eagleowner2026"
+    is_owner_cookie = request.cookies.get("eagle_owner") == "1"
+    is_owner = is_owner_link or is_owner_cookie
     
     # Yerel test IP'lerinde sayacı arttırma
     is_local = user_ip in ["127.0.0.1", "localhost"] or user_ip.startswith("192.168.")
-    if user_ip not in visited_ips:
+    if not is_owner and user_ip not in visited_ips:
         visited_ips.add(user_ip)
         if user_ip not in visitor_ips_history and not is_local:
             visitor_ips_history.add(user_ip)
@@ -1163,7 +1167,10 @@ def index():
     except:
         pass
 
-    return render_template_string(HTML_TEMPLATE, real_ip=user_ip, real_location=real_location, weather_list=weather_list, meteors=meteors, map_meteors=map_meteors, earthquakes=earthquakes[:6], map_quakes=map_quakes, events=events, visitor_count=visitor_count)
+    resp = make_response(render_template_string(HTML_TEMPLATE, real_ip=user_ip, real_location=real_location, weather_list=weather_list, meteors=meteors, map_meteors=map_meteors, earthquakes=earthquakes[:6], map_quakes=map_quakes, events=events, visitor_count=visitor_count))
+    if is_owner_link:
+        resp.set_cookie('eagle_owner', '1', max_age=365*24*60*60)
+    return resp
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
