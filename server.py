@@ -56,27 +56,29 @@ def _fetch_market_data_live():
         print("Truncgil altın verisi alınamadı, önceki/varsayılan kullanılıyor:", e)
 
     try:
+        cg_key = os.environ.get("COINGECKO_API_KEY", "")
         req2 = urllib.request.Request(
-            "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+            f"https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&x_cg_demo_api_key={cg_key}",
             headers={"User-Agent": "Mozilla/5.0"}
         )
         with urllib.request.urlopen(req2, timeout=6) as resp2:
             j2 = _json.loads(resp2.read().decode("utf-8"))
-        data["btc"] = _fmt_usd(float(j2["price"]))
+        data["btc"] = _fmt_usd(float(j2["bitcoin"]["usd"]))
     except Exception as e:
-        print("Binance BTC verisi alınamadı, önceki/varsayılan kullanılıyor:", e)
+        print("CoinGecko BTC verisi alınamadı, önceki/varsayılan kullanılıyor:", e)
 
     try:
+        cg_key = os.environ.get("COINGECKO_API_KEY", "")
         req3 = urllib.request.Request(
-            "https://api.coinpaprika.com/v1/global",
+            f"https://api.coingecko.com/api/v3/global?x_cg_demo_api_key={cg_key}",
             headers={"User-Agent": "Mozilla/5.0"}
         )
         with urllib.request.urlopen(req3, timeout=6) as resp3:
             j3 = _json.loads(resp3.read().decode("utf-8"))
-        dominance = j3["bitcoin_dominance_percentage"]
+        dominance = j3["data"]["market_cap_percentage"]["btc"]
         data["btc_dominance"] = f"{dominance:.1f}%"
     except Exception as e:
-        print("CoinPaprika BTC dominans verisi alınamadı, önceki/varsayılan kullanılıyor:", e)
+        print("CoinGecko BTC dominans verisi alınamadı, önceki/varsayılan kullanılıyor:", e)
 
     _last_good["data"] = data
     return data
@@ -1053,12 +1055,14 @@ def index():
     moon_svg = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>'''
     
     cloud_svg = '''<svg class="svg-cloud" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>'''
+    mist_svg = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="8" x2="21" y2="8"></line><line x1="5" y1="12" x2="19" y2="12"></line><line x1="3" y1="16" x2="21" y2="16"></line></svg>'''
     rain_svg = '''<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path class="svg-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><line class="svg-rain-drop" x1="8" y1="22" x2="8" y2="24" stroke="#ffffff"></line><line class="svg-rain-drop" x1="12" y1="22" x2="12" y2="24" stroke="#ffffff" style="animation-delay: 0.3s;"></line><line class="svg-rain-drop" x1="16" y1="22" x2="16" y2="24" stroke="#ffffff" style="animation-delay: 0.6s;"></line></svg>'''
     
-    map_sun_svg = '''<svg class="svg-sun" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="M4.93 4.93l1.41 1.41"></path><path d="M17.66 17.66l1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="M6.34 17.66l-1.41 1.41"></path><path d="M19.07 4.93l-1.41 1.41"></path></svg>'''
-    map_moon_svg = '''<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>'''
+    map_sun_svg = '''<svg class="svg-sun" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="M4.93 4.93l1.41 1.41"></path><path d="M17.66 17.66l1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="M6.34 17.66l-1.41 1.41"></path><path d="M19.07 4.93l-1.41 1.41"></path></svg>'''
+    map_moon_svg = '''<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>'''
     
     map_cloud_svg = '''<svg class="svg-cloud" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>'''
+    map_mist_svg = '''<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="8" x2="21" y2="8"></line><line x1="5" y1="12" x2="19" y2="12"></line><line x1="3" y1="16" x2="21" y2="16"></line></svg>'''
     map_rain_svg = '''<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="3.5" fill="#38bdf8" fill-opacity="0.3" stroke-linecap="round" stroke-linejoin="round"><path class="svg-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><line class="svg-rain-drop" x1="8" y1="22" x2="8" y2="24" stroke="#2563eb"></line><line class="svg-rain-drop" x1="12" y1="22" x2="12" y2="24" stroke="#2563eb" style="animation-delay: 0.3s;"></line><line class="svg-rain-drop" x1="16" y1="22" x2="16" y2="24" stroke="#2563eb" style="animation-delay: 0.6s;"></line></svg>'''
 
     for c in cities:
@@ -1076,7 +1080,9 @@ def index():
             d_lower = desc.lower()
             if "yağmur" in d_lower or "rain" in d_lower or "fırtına" in d_lower or "sağanak" in d_lower:
                 svg_icon, map_svg = rain_svg, map_rain_svg
-            elif "bulut" in d_lower or "cloud" in d_lower or "pus" in d_lower or "overcast" in d_lower:
+            elif "pus" in d_lower or "mist" in d_lower or "sis" in d_lower:
+                svg_icon, map_svg = mist_svg, map_mist_svg
+            elif "bulut" in d_lower or "cloud" in d_lower or "overcast" in d_lower:
                 svg_icon, map_svg = cloud_svg, map_cloud_svg
             else:
                 if is_night:
