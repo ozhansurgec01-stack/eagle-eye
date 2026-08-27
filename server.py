@@ -211,7 +211,7 @@ def get_visitor_count():
 
 def increment_visitor_count():
     ua = request.headers.get('User-Agent', '').lower()
-    is_bot = any(b in ua for b in ['bot', 'crawl', 'spider', 'render', 'uptime', 'ping', 'axios', 'postman', 'go-http-client', 'head'])
+    is_bot = any(b in ua for b in ['bot', 'crawl', 'spider', 'render', 'uptime', 'ping', 'axios', 'postman', 'go-http-client', 'head', 'facebookexternalhit', 'facebookcatalog', 'whatsapp', 'telegram', 'discordbot', 'slackbot', 'linkedinbot', 'twitterbot', 'skypeuripreview', 'w3c_validator', 'pingdom', 'gtmetrix'])
     if is_bot:
         return get_visitor_count()
     try:
