@@ -728,11 +728,17 @@ HTML_TEMPLATE = """
     <script>
         function updateClock() {
             var now = new Date();
-            var hours = String(now.getHours()).padStart(2, '0');
-            var minutes = String(now.getMinutes()).padStart(2, '0');
-            var seconds = String(now.getSeconds()).padStart(2, '0');
-            document.getElementById('liveClock').innerHTML = '🕒 ' + hours + ':' + minutes + ':' + seconds;
+            var time = new Intl.DateTimeFormat('tr-TR', {
+                timeZone: 'Europe/Istanbul',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            }).format(now);
+
+            document.getElementById('liveClock').innerHTML = '🕒 ' + time;
         }
+
         setInterval(updateClock, 1000);
         updateClock();
 
