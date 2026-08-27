@@ -597,7 +597,7 @@ HTML_TEMPLATE = """
             {% endfor %}
         </div>
 
-        <div class="panel-title mt-4">🌍 Son Depremler (Büyüklük >= 3.0)</div>
+        <div class="panel-title mt-4">🌍 Son Depremler (Büyüklük >= 4.0)</div>
         <div>
             {% if earthquakes %}
                 {% for q in earthquakes %}
@@ -1172,7 +1172,7 @@ def index():
         # Turkiye ve cevresi icin USGS API'si (whitelist dostu, resmi/global kaynak)
         usgs_url = (
             "https://earthquake.usgs.gov/fdsnws/event/1/query"
-            "?format=geojson&minmagnitude=3.0"
+            "?format=geojson&minmagnitude=4.0"
             "&minlatitude=35.5&maxlatitude=42.5"
             "&minlongitude=25.5&maxlongitude=45.0"
             "&orderby=time&limit=20"
