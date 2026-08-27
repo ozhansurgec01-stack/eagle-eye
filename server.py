@@ -31,7 +31,6 @@ CACHE_TTL = 300  # saniye (5 dakika, rate limit'e karsi)
 
 def _fetch_market_data_live():
     data = dict(_last_good["data"] or _DEFAULT_DATA)
-    data.pop("ons", None)
     data.pop("cumhuriyet", None)
 
     def tr_float(x):
@@ -84,6 +83,44 @@ def _fetch_market_data_live():
             "tam": "tam-altin",
         }.items():
             update_if_valid(key, socket_ask(socket_key))
+
+
+        # ------------------------------------------------------
+        # ONS ALTIN: Doviz.com'un doğrudan Ons Altın sayfası
+        # Hesaplama yapılmaz; sayfadaki SATIŞ değeri alınır.
+        # ------------------------------------------------------
+        try:
+            r_ons = requests.get(
+                "https://altin.doviz.com/ons",
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=(3, 6)
+            )
+            r_ons.raise_for_status()
+            ons_text = r_ons.text
+
+            m_ons = re.search(
+                r'data-socket-attr=["\']ask["\'][^>]*>\s*([0-9.]+,[0-9]+)',
+                ons_text,
+                re.I | re.S
+            )
+
+            if not m_ons:
+                # Sayfa içindeki satış değerine ikinci doğrudan arama
+                m_ons = re.search(
+                    r'Satış.{0,500}?([0-9.]+,[0-9]+)',
+                    ons_text,
+                    re.I | re.S
+                )
+
+            if m_ons:
+                ons_value = tr_float(m_ons.group(1))
+                update_if_valid("ons", ons_value)
+                print("Doviz.com canlı ONS verisi OK:", data.get("ons"))
+            else:
+                print("Doviz.com ONS satış değeri bulunamadı; eski doğrulanmış değer korunuyor.")
+
+        except Exception as e:
+            print("Doviz.com ONS alınamadı; eski doğrulanmış değer korunuyor:", e)
 
         print("Doviz.com ana altın kaynağı OK.")
 
@@ -464,7 +501,7 @@ HTML_TEMPLATE = """
             <span class="dot">•</span>
             <span>📊 BTC DOMİNANS: <strong id="t-btcdom" class="btc">--%</strong></span>
             <span class="dot">•</span>
-            <span>🟡 ONS ALTIN: <strong id="t-ons" class="ons">4.603,11 $</strong></span>
+            <span>🟡 ONS ALTIN: <strong id="t-ons" class="ons">--,-- $</strong></span>
             <span class="dot">•</span>
             <span>🥇 GRAM ALTIN: <strong id="t-gram" class="gold">7.181,65 ₺</strong></span>
             <span class="dot">•</span>
@@ -491,7 +528,7 @@ HTML_TEMPLATE = """
             <span class="dot">•</span>
             <span>📊 BTC DOMİNANS: <strong id="t-btcdom" class="btc">--%</strong></span>
             <span class="dot">•</span>
-            <span>🟡 ONS ALTIN: <strong id="t-ons" class="ons">4.603,11 $</strong></span>
+            <span>🟡 ONS ALTIN: <strong id="t-ons" class="ons">--,-- $</strong></span>
             <span class="dot">•</span>
             <span>🥇 GRAM ALTIN: <strong id="t-gram" class="gold">7.181,65 ₺</strong></span>
             <span class="dot">•</span>
@@ -595,7 +632,7 @@ HTML_TEMPLATE = """
             <div style="display: inline-flex; align-items: center; white-space: nowrap; animation: perfectScroll 30s linear infinite; font-size: 13px; font-weight: 600; color: #f1f5f9;">
                 <span style="margin: 0 15px;">🪙 BİTCOİN: <strong style="color:#38bdf8;">77.452,50 $</strong></span>
                 <span style="margin: 0 10px; color:#64748b;">•</span>
-                <span style="margin: 0 15px;">🟡 ONS ALTIN: <strong style="color:#4ade80;">4.603,11 $</strong></span>
+                <span style="margin: 0 15px;">🟡 ONS ALTIN: <strong style="color:#4ade80;">--,-- $</strong></span>
                 <span style="margin: 0 10px; color:#64748b;">•</span>
                 <span style="margin: 0 15px;">🥇 GRAM ALTIN: <strong style="color:#fbbf24;">7.181,65 ₺</strong></span>
                 <span style="margin: 0 10px; color:#64748b;">•</span>
@@ -609,7 +646,7 @@ HTML_TEMPLATE = """
                 <span style="margin: 0 15px; color:#38bdf8;">&nbsp;|&nbsp;</span>
                 <span style="margin: 0 15px;">🪙 BİTCOİN: <strong style="color:#38bdf8;">77.452,50 $</strong></span>
                 <span style="margin: 0 10px; color:#64748b;">•</span>
-                <span style="margin: 0 15px;">🟡 ONS ALTIN: <strong style="color:#4ade80;">4.603,11 $</strong></span>
+                <span style="margin: 0 15px;">🟡 ONS ALTIN: <strong style="color:#4ade80;">--,-- $</strong></span>
                 <span style="margin: 0 10px; color:#64748b;">•</span>
                 <span style="margin: 0 15px;">🥇 GRAM ALTIN: <strong style="color:#fbbf24;">7.181,65 ₺</strong></span>
                 <span style="margin: 0 10px; color:#64748b;">•</span>
