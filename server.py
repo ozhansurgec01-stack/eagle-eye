@@ -183,9 +183,14 @@ def get_visitor_log(limit=100):
 
 COUNTER_API_BASE = "https://api.counterapi.dev/v2/eagle-eye-dw3c-visitors/hero-counter"
 
+def _counterapi_headers():
+    key = os.environ.get("COUNTERAPI_KEY", "")
+    return {"Authorization": f"Bearer {key}"} if key else {}
+
+
 def get_visitor_count():
     try:
-        r = requests.get(COUNTER_API_BASE, timeout=2)
+        r = requests.get(COUNTER_API_BASE, timeout=2, headers=_counterapi_headers())
         if r.status_code == 200:
             count = r.json()["data"]["up_count"]
             try:
@@ -210,7 +215,7 @@ def increment_visitor_count():
     if is_bot:
         return get_visitor_count()
     try:
-        requests.get(f"{COUNTER_API_BASE}/up", timeout=2)
+        requests.get(f"{COUNTER_API_BASE}/up", timeout=2, headers=_counterapi_headers())
         return get_visitor_count()
     except Exception as e:
         print("Sayac artirma hatasi:", e)
