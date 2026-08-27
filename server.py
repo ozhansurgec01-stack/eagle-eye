@@ -18,7 +18,6 @@ def _fmt_usd(v):
 
 _DEFAULT_DATA = {
     "btc": "77.452,50 $",
-    "ons": "4.637,69 $",
     "gram": "7.181,65 \u20ba",
     "ayar22": "6.437,47 \u20ba",
     "ceyrek": "11.540,86 \u20ba",
@@ -32,60 +31,106 @@ CACHE_TTL = 300  # saniye (5 dakika, rate limit'e karsi)
 
 def _fetch_market_data_live():
     data = dict(_last_good["data"] or _DEFAULT_DATA)
+    data.pop("ons", None)
+    data.pop("cumhuriyet", None)
 
+    def tr_float(x):
+        return float(x.replace(".", "").replace(",", "."))
+
+    def update_if_valid(key, value, minimum=0):
+        if value is None or value <= minimum:
+            return
+        old = data.get(key)
+        if old:
+            try:
+                old_value = tr_float(
+                    old.replace("₺", "").replace("$", "").strip()
+                )
+                # Ani ve gerçek dışı sıçramayı engelle
+                if old_value > 0 and abs(value - old_value) / old_value > 0.12:
+                    print(f"Fiyat sıçraması reddedildi: {key} {value}")
+                    return
+            except Exception:
+                pass
+        data[key] = _fmt_try(value) if key != "ons" else _fmt_usd(value)
+
+    # ==========================================================
+    # 1) ANA KAYNAK: Doviz.com socket-key
+    # ==========================================================
     try:
-        r_doviz = requests.get(
+        r = requests.get(
             "https://altin.doviz.com/",
             headers={"User-Agent": "Mozilla/5.0"},
             timeout=(3, 6)
         )
-        r_doviz.raise_for_status()
-        text = r_doviz.text
+        r.raise_for_status()
+        text = r.text
 
-        def _doviz_card(name):
-            p = re.escape(name)
+        def socket_ask(key):
             m = re.search(
-                p + r".{0,1200}?Alış.{0,150}?([0-9.]+,[0-9]+)"
-                r".{0,150}?Satış.{0,150}?([0-9.]+,[0-9]+)",
-                text, re.I | re.S
+                r'data-socket-key=["\']' + re.escape(key) +
+                r'["\'][^>]*data-socket-attr=["\']ask["\'][^>]*>'
+                r'\s*([0-9.]+,[0-9]+)',
+                text,
+                re.I | re.S
             )
-            if not m:
-                return None
-            return float(m.group(2).replace(".", "").replace(",", "."))
+            return tr_float(m.group(1)) if m else None
 
-        for key, name in [
-            ("gram", "Gram Altın"),
-            ("ceyrek", "Çeyrek Altın"),
-            ("yarim", "Yarım Altın"),
-            ("tam", "Tam Altın")
-        ]:
-            v = _doviz_card(name)
-            if v is not None:
-                data[key] = _fmt_try(v)
+        for key, socket_key in {
+            "gram": "gram-altin",
+            "ayar22": "22-ayar-bilezik",
+            "ceyrek": "ceyrek-altin",
+            "yarim": "yarim-altin",
+            "tam": "tam-altin",
+        }.items():
+            update_if_valid(key, socket_ask(socket_key))
 
-        def _doviz_simple(label):
-            m = re.search(re.escape(label) + r"\s+([0-9.,]+)\s*%", text)
-            if not m:
-                return None
-            return float(m.group(1).replace(".", "").replace(",", "."))
-
-        usd_v = _doviz_simple("DOLAR")
-        if usd_v is not None:
-            data["usd"] = _fmt_try(usd_v)
-
-        eur_v = _doviz_simple("EURO")
-        if eur_v is not None:
-            data["eur"] = _fmt_try(eur_v)
-
-        m_ons = re.search(r"Ons Altın.{0,500}?\$([0-9.,]+).{0,80}?\$([0-9.,]+)", text, re.I | re.S)
-        if m_ons:
-            data["ons"] = _fmt_usd(float(m_ons.group(2).replace(".", "").replace(",", ".")))
-
-        _last_good["data"] = dict(data)
-        print("Doviz.com ALTIN verileri başarıyla alındı.")
+        print("Doviz.com ana altın kaynağı OK.")
 
     except Exception as e:
-        print("Doviz.com altın verisi alınamadı:", e)
+        print("Doviz.com kullanılamadı, APara yedeğine geçiliyor:", e)
+
+    # ==========================================================
+    # 2) YEDEK KAYNAK: APara
+    # ==========================================================
+    try:
+        r = requests.get(
+            "https://www.apara.com.tr/altin",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=(3, 6)
+        )
+        r.raise_for_status()
+        text = r.text
+
+        def apara_value(name):
+            m = re.search(
+                re.escape(name) +
+                r".{0,500}?ALIŞ.{0,120}?([0-9.,]+)"
+                r".{0,120}?SATIŞ.{0,120}?([0-9.,]+)",
+                text,
+                re.I | re.S
+            )
+            return tr_float(m.group(2)) if m else None
+
+        for key, name in {
+            "gram": "GRAM ALTIN",
+            "ceyrek": "ÇEYREK ALTIN",
+            "yarim": "YARIM ALTIN",
+            "tam": "TAM ALTIN",
+        }.items():
+            value = apara_value(name)
+            if value is not None:
+                # Ana kaynak değeri yoksa yedeği kullan
+                if key not in data or not data[key]:
+                    data[key] = _fmt_try(value)
+
+
+        print("APara yedek altın kaynağı OK.")
+
+    except Exception as e:
+        print("APara yedek kaynağı kullanılamadı:", e)
+
+    _last_good["data"] = dict(data)
 
     try:
         cg_key = os.environ.get("COINGECKO_API_KEY", "")
