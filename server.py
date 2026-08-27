@@ -1,3 +1,4 @@
+import re
 
 import urllib.request
 import urllib.error
@@ -33,31 +34,58 @@ def _fetch_market_data_live():
     data = dict(_last_good["data"] or _DEFAULT_DATA)
 
     try:
-        r_truncgil = requests.get(
-            "https://finans.truncgil.com/today.json",
+        r_doviz = requests.get(
+            "https://altin.doviz.com/",
             headers={"User-Agent": "Mozilla/5.0"},
-            timeout=5
+            timeout=(3, 6)
         )
-        j = r_truncgil.json()
+        r_doviz.raise_for_status()
+        text = r_doviz.text
 
-        if "USD" in j:
-            data["usd"] = _fmt_try(_tr_to_float(j["USD"]["Satış"]))
-        if "EUR" in j:
-            data["eur"] = _fmt_try(_tr_to_float(j["EUR"]["Satış"]))
-        if "gram-altin" in j:
-            data["gram"] = _fmt_try(_tr_to_float(j["gram-altin"]["Satış"]))
-        if "22-ayar-bilezik" in j:
-            data["ayar22"] = _fmt_try(_tr_to_float(j["22-ayar-bilezik"]["Satış"]))
-        if "ceyrek-altin" in j:
-            data["ceyrek"] = _fmt_try(_tr_to_float(j["ceyrek-altin"]["Satış"]))
-        if "yarim-altin" in j:
-            data["yarim"] = _fmt_try(_tr_to_float(j["yarim-altin"]["Satış"]))
-        if "tam-altin" in j:
-            data["tam"] = _fmt_try(_tr_to_float(j["tam-altin"]["Satış"]))
-        if "ons" in j:
-            data["ons"] = _fmt_usd(_tr_to_float(j["ons"]["Satış"]))
+        def _doviz_card(name):
+            p = re.escape(name)
+            m = re.search(
+                p + r".{0,1200}?Alış.{0,150}?([0-9.]+,[0-9]+)"
+                r".{0,150}?Satış.{0,150}?([0-9.]+,[0-9]+)",
+                text, re.I | re.S
+            )
+            if not m:
+                return None
+            return float(m.group(2).replace(".", "").replace(",", "."))
+
+        for key, name in [
+            ("gram", "Gram Altın"),
+            ("ceyrek", "Çeyrek Altın"),
+            ("yarim", "Yarım Altın"),
+            ("tam", "Tam Altın")
+        ]:
+            v = _doviz_card(name)
+            if v is not None:
+                data[key] = _fmt_try(v)
+
+        def _doviz_simple(label):
+            m = re.search(re.escape(label) + r"\s+([0-9.,]+)\s*%", text)
+            if not m:
+                return None
+            return float(m.group(1).replace(".", "").replace(",", "."))
+
+        usd_v = _doviz_simple("DOLAR")
+        if usd_v is not None:
+            data["usd"] = _fmt_try(usd_v)
+
+        eur_v = _doviz_simple("EURO")
+        if eur_v is not None:
+            data["eur"] = _fmt_try(eur_v)
+
+        m_ons = re.search(r"Ons Altın.{0,500}?\$([0-9.,]+).{0,80}?\$([0-9.,]+)", text, re.I | re.S)
+        if m_ons:
+            data["ons"] = _fmt_usd(float(m_ons.group(2).replace(".", "").replace(",", ".")))
+
+        _last_good["data"] = dict(data)
+        print("Doviz.com ALTIN verileri başarıyla alındı.")
+
     except Exception as e:
-        print("Truncgil altın verisi alınamadı, önceki/varsayılan kullanılıyor:", e)
+        print("Doviz.com altın verisi alınamadı:", e)
 
     try:
         cg_key = os.environ.get("COINGECKO_API_KEY", "")
