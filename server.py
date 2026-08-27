@@ -33,19 +33,19 @@ def _fetch_market_data_live():
     data = dict(_last_good["data"] or _DEFAULT_DATA)
 
     try:
-        req = urllib.request.Request(
+        r_truncgil = requests.get(
             "https://finans.truncgil.com/today.json",
-            headers={"User-Agent": "Mozilla/5.0"}
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=5
         )
-        with urllib.request.urlopen(req, timeout=3) as resp:
-            j = _json.loads(resp.read().decode("utf-8"))
+        j = r_truncgil.json()
 
-            if "USD" in j:
-                data["usd"] = _fmt_try(_tr_to_float(j["USD"]["Satış"]))
-            if "EUR" in j:
-                data["eur"] = _fmt_try(_tr_to_float(j["EUR"]["Satış"]))
-            if "gram-altin" in j:
-                data["gram"] = _fmt_try(_tr_to_float(j["gram-altin"]["Satış"]))
+        if "USD" in j:
+            data["usd"] = _fmt_try(_tr_to_float(j["USD"]["Satış"]))
+        if "EUR" in j:
+            data["eur"] = _fmt_try(_tr_to_float(j["EUR"]["Satış"]))
+        if "gram-altin" in j:
+            data["gram"] = _fmt_try(_tr_to_float(j["gram-altin"]["Satış"]))
         if "22-ayar-bilezik" in j:
             data["ayar22"] = _fmt_try(_tr_to_float(j["22-ayar-bilezik"]["Satış"]))
         if "ceyrek-altin" in j:
