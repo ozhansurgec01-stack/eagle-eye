@@ -597,6 +597,12 @@ HTML_TEMPLATE = """
             {% endfor %}
         </div>
 
+        {% if mgm_uyari %}
+        <div style="background: linear-gradient(135deg, #b45309, #92400e); border-radius: 12px; padding: 14px 16px; margin-top: 16px; border: 1px solid #f59e0b;">
+            <div style="font-weight: 800; font-size: 0.8rem; color: #fef3c7; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px;">⚠️ Meteoroloji Uyarısı</div>
+            <div style="color: #fffbeb; font-size: 0.9rem; line-height: 1.4;">{{ mgm_uyari }}</div>
+        </div>
+        {% endif %}
         <div class="panel-title mt-4">🌍 Son Depremler (Büyüklük >= 4.0)</div>
         <div>
             {% if earthquakes %}
@@ -1166,6 +1172,26 @@ def index():
     except:
         pass
 
+    mgm_uyari = None
+    try:
+        mgm_res = requests.get("https://www.mgm.gov.tr/mobile/tahmin-uyari-liste.aspx", timeout=3)
+        mgm_text = mgm_res.text
+        if "Meteorolojik Uyarı ve Değerlendirmeler" in mgm_text and "Güncel Meteorolojik Değerlendirme Bulunmamaktadır" not in mgm_text:
+            import re as _re
+            plain = _re.sub('<[^>]+>', '\n', mgm_text)
+            lines = [ln.strip() for ln in plain.split('\n') if ln.strip()]
+            anchor_idx = None
+            for i, ln in enumerate(lines):
+                if "Meteorolojik Uyarı ve Değerlendirmeler" in ln:
+                    anchor_idx = i
+                    break
+            if anchor_idx is not None and anchor_idx + 2 < len(lines):
+                baslik = lines[anchor_idx + 2]
+                if baslik and "Bulunmamaktadır" not in baslik and len(baslik) > 5:
+                    mgm_uyari = baslik
+    except Exception as e:
+        print("MGM uyari alinamadi:", e)
+
     earthquakes = []
     map_quakes = []
     try:
@@ -1203,7 +1229,7 @@ def index():
     except:
         pass
 
-    resp = make_response(render_template_string(HTML_TEMPLATE, real_ip=user_ip, real_location=real_location, weather_list=weather_list, meteors=meteors, map_meteors=map_meteors, earthquakes=earthquakes[:6], map_quakes=map_quakes, events=events, visitor_count=visitor_count))
+    resp = make_response(render_template_string(HTML_TEMPLATE, real_ip=user_ip, real_location=real_location, weather_list=weather_list, meteors=meteors, map_meteors=map_meteors, earthquakes=earthquakes[:6], map_quakes=map_quakes, events=events, visitor_count=visitor_count, mgm_uyari=mgm_uyari))
     if is_owner_link:
         resp.set_cookie('eagle_owner', '1', max_age=365*24*60*60)
     if is_new_real_visitor:
