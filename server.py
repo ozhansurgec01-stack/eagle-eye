@@ -227,7 +227,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eagle Eye - Pro TR v8.66</title>
+    <title>Sentry - Pro TR v8.66</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -559,7 +559,7 @@ HTML_TEMPLATE = """
     
 
     <div class="header-bar">
-        <div class="brand">🦅 EAGLE EYE v8.66</div>
+        <div class="brand">🦅 SENTRY v8.66</div>
 <button id="rainToggleBtn" onclick="toggleRainLayer()" class="nav-btn" style="background: #0284c7; color: white; border: none; padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 4px;">
     🌧️ YAĞIŞ <span id="rainStatus" style="font-size: 9px; opacity: 0.9;">(AÇIK)</span>
 </button>
@@ -762,7 +762,7 @@ HTML_TEMPLATE = """
         const clientIp = "{{ real_ip }}";
         const clientLocation = "{{ real_location }}";
         const box = document.createElement('div');
-        box.innerHTML = '🦅 Eagle Eye Radar<br><span style="font-size: 11px; color: #94a3b8;">IP: ' + clientIp + ' &bull; ' + clientLocation + '</span>';
+        box.innerHTML = '🦅 Sentry Radar<br><span style="font-size: 11px; color: #94a3b8;">IP: ' + clientIp + ' &bull; ' + clientLocation + '</span>';
         box.style.position = 'fixed';
         box.style.top = '15px';
         box.style.left = '50%';
@@ -1016,7 +1016,7 @@ def ziyaretciler():
             input { padding:10px; border-radius:8px; border:1px solid #38bdf8; background:#111827; color:#fff; font-size:16px; }
             button { padding:10px 20px; border-radius:8px; border:none; background:#38bdf8; color:#111; font-weight:bold; margin-left:8px; font-size:16px; }
         </style></head><body>
-        <h2>🦅 Eagle Eye - Giriş Gerekli</h2>
+        <h2>🦅 Sentry - Giriş Gerekli</h2>
         <form method="get">
             <input type="password" name="sifre" placeholder="Şifre">
             <button type="submit">Gir</button>
@@ -1034,7 +1034,7 @@ def ziyaretciler():
         table {{ width:100%; border-collapse:collapse; }}
         th {{ text-align:left; padding:8px; border-bottom:2px solid #38bdf8; color:#38bdf8; }}
     </style></head><body>
-    <h2>🦅 Eagle Eye - Ziyaretçi Kayıtları (son {len(entries)})</h2>
+    <h2>🦅 Sentry - Ziyaretçi Kayıtları (son {len(entries)})</h2>
     <table><tr><th>Tarih/Saat</th><th>IP</th><th>Konum</th><th>Tarayıcı</th></tr>
     {rows}
     </table>
