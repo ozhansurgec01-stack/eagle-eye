@@ -75,6 +75,16 @@ def _fetch_market_data_live():
             )
             return tr_float(m.group(1)) if m else None
 
+        def socket_spot(key):
+            m = re.search(
+                r'data-socket-key=["\']' + re.escape(key) +
+                r'["\'][^>]*data-socket-attr=["\']s["\'][^>]*>'
+                r'\s*([0-9.]+,[0-9]+)',
+                text,
+                re.I | re.S
+            )
+            return tr_float(m.group(1)) if m else None
+
         for key, socket_key in {
             "gram": "gram-altin",
             "ayar22": "22-ayar-bilezik",
@@ -83,6 +93,12 @@ def _fetch_market_data_live():
             "tam": "tam-altin",
         }.items():
             update_if_valid(key, socket_ask(socket_key))
+
+        for key, socket_key in {
+            "usd": "USD",
+            "eur": "EUR",
+        }.items():
+            update_if_valid(key, socket_spot(socket_key))
 
 
         # ------------------------------------------------------
