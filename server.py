@@ -601,16 +601,13 @@ HTML_TEMPLATE = """
         <div>
             {% if earthquakes %}
                 {% for q in earthquakes %}
-                <div class="quake-card" onclick="panToLocation({{ q.lat }}, {{ q.lon }}, '<b>🚨 Deprem</b><br><b>Yer:</b> {{ q.title }}<br><b>Büyüklük:</b> {{ q.mag }}<br><b>Derinlik:</b> {{ q.depth }} km<br><b>Tarih:</b> {{ q.date_str }}', 6)">
+                <div class="quake-card" onclick="panToLocation({{ q.lat }}, {{ q.lon }}, '<b>🚨 Deprem</b><br><b>Yer:</b> {{ q.title }}<br><b>Büyüklük:</b> {{ q.mag }}<br><b>Tarih:</b> {{ q.date_str }}', 6)">
                     <div class="quake-info">
                         <div class="quake-line" style="color: var(--text-muted); font-size: 0.75rem;">
                             🕒 {{ q.date_str }} &nbsp;&nbsp; 📍 <span style="color: var(--text-main); font-weight: 800;">{{ q.title }}</span>
                         </div>
                         <div class="quake-line">
                             💥 Şiddet: <span class="quake-mag-badge">{{ q.mag }}</span>
-                        </div>
-                        <div class="quake-line" style="color: var(--text-muted); font-size: 0.75rem;">
-                            📏 Derinlik: {{ q.depth }} km
                         </div>
                     </div>
                     <div class="globe-btn">
@@ -743,7 +740,7 @@ HTML_TEMPLATE = """
                 var radiusVal = Math.max(q.mag * 1.2, 3);
                 L.circleMarker([q.lat, q.lon], { color: colorVal, fillColor: colorVal, fillOpacity: 0.5, weight: 1.2, radius: radiusVal })
                  .addTo(map)
-                 .bindPopup("<div style='font-family:sans-serif; color:#111;'><b>🚨 Deprem</b><br><b>Yer:</b> " + q.title + "<br><b>Büyüklük:</b> " + q.mag + "<br><b>Derinlik:</b> " + q.depth + " km<br><b>Tarih:</b> " + q.date_str + "</div>");
+                 .bindPopup("<div style='font-family:sans-serif; color:#111;'><b>🚨 Deprem</b><br><b>Yer:</b> " + q.title + "<br><b>Büyüklük:</b> " + q.mag + "<br><b>Tarih:</b> " + q.date_str + "</div>");
             }
         });
 
