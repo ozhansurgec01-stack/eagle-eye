@@ -759,16 +759,18 @@ HTML_TEMPLATE = """
             {% endif %}
         </div>
 
-        <div class="panel-title mt-4">✨ Son Düşen Ateş Topları (NASA)</div>
+        <div class="panel-title mt-4">✨ Son Düşen Meteorlar (NASA)</div>
         <div class="card-custom">
             {% for m in meteors %}
-            <div class="item-row" onclick="panToLocation({{ m.lat_num }}, {{ m.lon_num }}, '<b>✨ Ateş Topu (NASA)</b><br><b>Tarih:</b> {{ m.date }}<br><b>Enerji:</b> {{ m.energy }} J', 6)">
+            <div class="item-row" onclick="panToLocation({{ m.lat_num }}, {{ m.lon_num }}, '<b>✨ Meteor (NASA)</b><br><b>Tarih:</b> {{ m.date }}<br><b>Enerji:</b> {{ m.energy }} J', 6)">
                 <div>
                     <div class="text-date">{{ m.date }}</div>
                     <div class="text-coord">Konum: {{ m.lat }}, {{ m.lon }}</div>
                 </div>
                 <span class="badge-energy">{{ m.energy }} J</span>
             </div>
+            {% else %}
+            <div style="color: var(--text-muted); font-size: 0.85rem; padding: 8px 4px;">Son 7 günde kayıtlı meteor düşüşü yok.</div>
             {% endfor %}
         </div>
 
@@ -894,7 +896,7 @@ HTML_TEMPLATE = """
             if(m.lat !== null && m.lon !== null && !isNaN(m.lat) && !isNaN(m.lon)) {
                 L.circleMarker([m.lat, m.lon], { color: '#fb923c', fillColor: '#f97316', fillOpacity: 0.5, weight: 1.2, radius: 4 })
                  .addTo(map)
-                 .bindPopup("<div style='font-family:sans-serif; color:#111;'><b>✨ Ateş Topu (NASA)</b><br><b>Tarih:</b> " + m.date + "<br><b>Enerji:</b> " + m.energy + " J</div>");
+                 .bindPopup("<div style='font-family:sans-serif; color:#111;'><b>✨ Meteor (NASA)</b><br><b>Tarih:</b> " + m.date + "<br><b>Enerji:</b> " + m.energy + " J</div>");
             }
         });
     </script>
@@ -1291,6 +1293,20 @@ def index():
         res = requests.get(url).json()
         fields = res.get("fields", [])
         rows = res.get("data", [])
+
+        cutoff = datetime.utcnow() - timedelta(days=7)
+        date_idx = fields.index("date") if "date" in fields else None
+        if date_idx is not None:
+            recent_rows = []
+            for row in rows:
+                try:
+                    row_date = datetime.strptime(row[date_idx], "%Y-%m-%d %H:%M:%S")
+                    if row_date >= cutoff:
+                        recent_rows.append(row)
+                except Exception:
+                    pass
+            rows = recent_rows
+
         for row in rows[:3]:
             lat_val = row[fields.index("lat")] if "lat" in fields and row[fields.index("lat")] else None
             lon_val = row[fields.index("lon")] if "lon" in fields and row[fields.index("lon")] else None
@@ -1362,7 +1378,9 @@ def index():
 
     events = []
     try:
-        feed = feedparser.parse("https://www.trthaber.com/sondakika.rss")
+        rss_res = requests.get("https://www.trthaber.com/sondakika.rss", timeout=5)
+        rss_res.encoding = "utf-8"
+        feed = feedparser.parse(rss_res.text)
         for entry in feed.entries[:5]:
             events.append({"title": entry.title, "link": entry.link, "source": "TRT Haber", "keyword": "GÜNCEL"})
     except:
