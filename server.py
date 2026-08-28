@@ -733,7 +733,9 @@ HTML_TEMPLATE = """
         {% if mgm_uyari %}
         <div style="background: linear-gradient(135deg, #b45309, #92400e); border-radius: 12px; padding: 14px 16px; margin-top: 16px; border: 1px solid #f59e0b;">
             <div style="font-weight: 800; font-size: 0.8rem; color: #fef3c7; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px;">⚠️ Meteoroloji Uyarısı</div>
-            <div style="color: #fffbeb; font-size: 0.9rem; line-height: 1.4;">{{ mgm_uyari }}</div>
+            {% for u in mgm_uyari %}
+            <div style="color: #fffbeb; font-size: 0.9rem; line-height: 1.4; margin-bottom: 4px;">• {{ u }}</div>
+            {% endfor %}
         </div>
         {% endif %}
         <div class="panel-title mt-4">🌍 Son Depremler (Büyüklük >= 4.0)</div>
@@ -1327,23 +1329,19 @@ def index():
     except:
         pass
 
-    mgm_uyari = None
+    mgm_uyari = []
     try:
         mgm_res = requests.get("https://www.mgm.gov.tr/mobile/tahmin-uyari-liste.aspx", timeout=3)
         mgm_text = mgm_res.text
-        if "Meteorolojik Uyarı ve Değerlendirmeler" in mgm_text and "Güncel Meteorolojik Değerlendirme Bulunmamaktadır" not in mgm_text:
-            import re as _re
-            plain = _re.sub('<[^>]+>', '\n', mgm_text)
-            lines = [ln.strip() for ln in plain.split('\n') if ln.strip()]
-            anchor_idx = None
-            for i, ln in enumerate(lines):
-                if "Meteorolojik Uyarı ve Değerlendirmeler" in ln:
-                    anchor_idx = i
-                    break
-            if anchor_idx is not None and anchor_idx + 2 < len(lines):
-                baslik = lines[anchor_idx + 2]
-                if baslik and "Bulunmamaktadır" not in baslik and len(baslik) > 5:
-                    mgm_uyari = baslik
+        items = re.findall(
+            r'<li>(\d{2}\.\d{2}\.\d{4})\s*<br/>\s*<a[^>]*>([^<]+)</a>\s*</li>',
+            mgm_text
+        )
+        for tarih, baslik in items:
+            baslik = baslik.strip()
+            if baslik:
+                mgm_uyari.append(baslik)
+        mgm_uyari = mgm_uyari[:3]
     except Exception as e:
         print("MGM uyari alinamadi:", e)
 
