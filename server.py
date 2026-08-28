@@ -83,7 +83,14 @@ def _fetch_market_data_live():
                 text,
                 re.I | re.S
             )
-            return tr_float(m.group(1)) if m else None
+            if m:
+                return tr_float(m.group(1))
+            m2 = re.search(
+                r'"asset_key":"' + re.escape(key) +
+                r'"[^}]*?"bid":([0-9.]+),"ask":([0-9.]+)',
+                text
+            )
+            return float(m2.group(2)) if m2 else None
 
         for key, socket_key in {
             "gram": "gram-altin",
