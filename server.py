@@ -1193,7 +1193,10 @@ def index():
     global visitor_count
     user_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
     real_location = get_location_from_ip(user_ip)
-    log_visitor(user_ip, request.headers.get('User-Agent', 'Bilinmiyor'))
+    _ua_check = request.headers.get('User-Agent', '').lower()
+    _is_bot_visit = any(b in _ua_check for b in ['bot', 'crawl', 'spider', 'render', 'uptime', 'ping', 'axios', 'postman', 'go-http-client', 'head', 'facebookexternalhit', 'facebookcatalog', 'whatsapp', 'telegram', 'discordbot', 'slackbot', 'linkedinbot', 'twitterbot', 'skypeuripreview', 'w3c_validator', 'pingdom', 'gtmetrix'])
+    if not _is_bot_visit:
+        log_visitor(user_ip, request.headers.get('User-Agent', 'Bilinmiyor'))
     
     visitor_count = get_visitor_count()
 
