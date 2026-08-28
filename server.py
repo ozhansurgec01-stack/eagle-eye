@@ -971,6 +971,24 @@ updateMarketPrices();
 setInterval(updateMarketPrices, 60000);
 
 let lastSeenVisitorTime = null;
+function playVisitorBeep() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.4);
+    } catch (e) {
+        console.log("Ses calinamadi:", e);
+    }
+}
+
 async function checkNewVisitor() {
     try {
         let response = await fetch('/api/latest-visitor');
@@ -985,6 +1003,7 @@ async function checkNewVisitor() {
 
         if (data.time !== lastSeenVisitorTime) {
             lastSeenVisitorTime = data.time;
+            playVisitorBeep();
             const box = document.createElement('div');
             box.innerHTML = '👀 Yeni Ziyaretçi<br><span style="font-size: 11px; color: #94a3b8;">' + data.location + '</span>';
             box.style.position = 'fixed';
@@ -1010,6 +1029,10 @@ async function checkNewVisitor() {
 }
 checkNewVisitor();
 setInterval(checkNewVisitor, 8000);
+
+setInterval(function() {
+    location.reload();
+}, 180000);
 </script>
 
 </body>
