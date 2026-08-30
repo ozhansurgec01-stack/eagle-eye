@@ -772,7 +772,7 @@ HTML_TEMPLATE = """
                 <span class="badge-energy">{{ m.energy }} J</span>
             </div>
             {% else %}
-            <div style="color: var(--text-muted); font-size: 0.85rem; padding: 8px 4px;">Son 7 günde kayıtlı meteor düşüşü yok.</div>
+            <div style="color: var(--text-muted); font-size: 0.85rem; padding: 8px 4px;">Son 30 günde kayıtlı meteor düşüşü yok.</div>
             {% endfor %}
         </div>
 
@@ -1323,7 +1323,7 @@ def index():
         fields = res.get("fields", [])
         rows = res.get("data", [])
 
-        cutoff = datetime.utcnow() - timedelta(days=7)
+        cutoff = datetime.utcnow() - timedelta(days=30)
         date_idx = fields.index("date") if "date" in fields else None
         if date_idx is not None:
             recent_rows = []
