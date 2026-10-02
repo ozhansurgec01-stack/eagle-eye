@@ -262,6 +262,122 @@ VISITOR_LOG_FILE = "visitor_log.jsonl"
 visited_ips = set()
 visitor_ips_history = set()
 
+
+# === EAGLE-EYE KAMERA YONETIMI ===
+CAMERAS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kameralar.json")
+
+
+def _kameralar_yukle():
+    try:
+        with open(CAMERAS_FILE, "r", encoding="utf-8") as f:
+            data = _json.load(f)
+        return data if isinstance(data, list) else []
+    except (FileNotFoundError, _json.JSONDecodeError):
+        return []
+
+
+def _kameralar_kaydet(data):
+    tmp_file = CAMERAS_FILE + ".tmp"
+    with open(tmp_file, "w", encoding="utf-8") as f:
+        _json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    os.replace(tmp_file, CAMERAS_FILE)
+
+
+def _kamera_yonetici_mi():
+    return request.cookies.get("eagle_owner") == "1"
+
+
+def _kamera_verisini_dogrula(kamera):
+    if not isinstance(kamera, list) or len(kamera) != 5:
+        return False
+
+    ad, lat, lon, url, kamera_tipi = kamera
+
+    if not isinstance(ad, str) or not ad.strip():
+        return False
+
+    if not isinstance(url, str) or not url.strip():
+        return False
+
+    if kamera_tipi not in ("normal", "yt", "hls", "image"):
+        return False
+
+    try:
+        float(lat)
+        float(lon)
+    except (TypeError, ValueError):
+        return False
+
+    return True
+
+
+@app.route("/api/kameralar", methods=["GET"])
+def api_kameralar():
+    return jsonify(_kameralar_yukle())
+
+
+@app.route("/api/kameralar", methods=["POST"])
+def api_kamera_ekle():
+    if not _kamera_yonetici_mi():
+        return jsonify({"ok": False, "error": "Yetkisiz kamera yönetimi"}), 403
+
+    kamera = request.get_json(silent=True)
+
+    if not _kamera_verisini_dogrula(kamera):
+        return jsonify({
+            "ok": False,
+            "error": "Geçersiz kamera verisi. Beklenen format: [ad, enlem, boylam, url, tip]"
+        }), 400
+
+    kameralar = _kameralar_yukle()
+    kameralar.append(kamera)
+    _kameralar_kaydet(kameralar)
+
+    return jsonify({"ok": True, "kamera": kamera, "index": len(kameralar) - 1})
+
+
+@app.route("/api/kameralar/<int:index>", methods=["PUT"])
+def api_kamera_duzenle(index):
+    if not _kamera_yonetici_mi():
+        return jsonify({"ok": False, "error": "Yetkisiz kamera yönetimi"}), 403
+
+    kamera = request.get_json(silent=True)
+
+    if not _kamera_verisini_dogrula(kamera):
+        return jsonify({
+            "ok": False,
+            "error": "Geçersiz kamera verisi. Beklenen format: [ad, enlem, boylam, url, tip]"
+        }), 400
+
+    kameralar = _kameralar_yukle()
+
+    if index < 0 or index >= len(kameralar):
+        return jsonify({"ok": False, "error": "Kamera bulunamadı"}), 404
+
+    kameralar[index] = kamera
+    _kameralar_kaydet(kameralar)
+
+    return jsonify({"ok": True, "kamera": kamera, "index": index})
+
+
+@app.route("/api/kameralar/<int:index>", methods=["DELETE"])
+def api_kamera_sil(index):
+    if not _kamera_yonetici_mi():
+        return jsonify({"ok": False, "error": "Yetkisiz kamera yönetimi"}), 403
+
+    kameralar = _kameralar_yukle()
+
+    if index < 0 or index >= len(kameralar):
+        return jsonify({"ok": False, "error": "Kamera bulunamadı"}), 404
+
+    silinen = kameralar.pop(index)
+    _kameralar_kaydet(kameralar)
+
+    return jsonify({"ok": True, "silinen": silinen, "index": index})
+
+# === EAGLE-EYE KAMERA YONETIMI SONU ===
+
 def get_location_from_ip(ip):
     try:
         if ip in ("127.0.0.1", "localhost") or ip.startswith("192.168.") or ip.startswith("10."):
@@ -691,6 +807,195 @@ HTML_TEMPLATE = """
     </style>
     
 
+
+    <style>
+    /* === EAGLE-EYE CAMERA UI START === */
+    #eagleCameraMenuButton {
+        position: fixed;
+        left: 10px;
+        top: 88px;
+        z-index: 20000;
+        width: 42px;
+        height: 42px;
+        border: 1px solid rgba(56,189,248,.45);
+        border-radius: 12px;
+        background: rgba(2,8,23,.92);
+        color: #38bdf8;
+        font-size: 21px;
+        cursor: pointer;
+        box-shadow: 0 6px 20px rgba(0,0,0,.35);
+    }
+
+    #eagleCameraBackdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 19998;
+        background: rgba(0,0,0,.42);
+        display: none;
+    }
+
+    #eagleCameraDrawer {
+        position: fixed;
+        top: 0;
+        left: -370px;
+        width: 350px;
+        max-width: calc(100vw - 30px);
+        height: 100vh;
+        z-index: 19999;
+        background: var(--bg-header);
+        color: #fff;
+        box-shadow: 10px 0 35px rgba(0,0,0,.45);
+        transition: left .22s ease;
+        overflow-y: auto;
+        box-sizing: border-box;
+        padding: 18px;
+    }
+
+    #eagleCameraDrawer.open {
+        left: 0;
+    }
+
+    #eagleCameraBackdrop.open {
+        display: block;
+    }
+
+    .eagle-camera-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+        font-weight: 800;
+        color: #38bdf8;
+        font-size: 16px;
+    }
+
+    .eagle-camera-close {
+        border: 0;
+        background: transparent;
+        color: #94a3b8;
+        font-size: 25px;
+        cursor: pointer;
+    }
+
+    .eagle-camera-section {
+        border: 1px solid rgba(148,163,184,.2);
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 12px;
+        background: rgba(15,23,42,.72);
+    }
+
+    .eagle-camera-section h3 {
+        margin: 0 0 10px;
+        font-size: 13px;
+        color: #e2e8f0;
+    }
+
+    .eagle-camera-field {
+        width: 100%;
+        box-sizing: border-box;
+        margin: 4px 0;
+        padding: 9px 10px;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        background: #020617;
+        color: #f8fafc;
+        font-size: 12px;
+        outline: none;
+    }
+
+    .eagle-camera-field:focus {
+        border-color: #38bdf8;
+    }
+
+    .eagle-camera-actions {
+        display: flex;
+        gap: 7px;
+        margin-top: 8px;
+    }
+
+    .eagle-camera-btn {
+        flex: 1;
+        border: 0;
+        border-radius: 8px;
+        padding: 9px 8px;
+        cursor: pointer;
+        font-weight: 700;
+        font-size: 11px;
+    }
+
+    .eagle-camera-add {
+        background: #0284c7;
+        color: #fff;
+    }
+
+    .eagle-camera-clear {
+        background: #334155;
+        color: #e2e8f0;
+    }
+
+    .eagle-camera-card {
+        border: 1px solid rgba(148,163,184,.2);
+        border-radius: 10px;
+        padding: 9px;
+        margin-top: 8px;
+        background: rgba(2,6,23,.72);
+    }
+
+    .eagle-camera-card-title {
+        font-size: 12px;
+        font-weight: 800;
+        color: #38bdf8;
+        margin-bottom: 6px;
+    }
+
+    .eagle-camera-readonly {
+        width: 100%;
+        box-sizing: border-box;
+        margin: 2px 0;
+        padding: 6px 7px;
+        border: 1px solid #1e293b;
+        border-radius: 6px;
+        background: #0f172a;
+        color: #cbd5e1;
+        font-size: 10px;
+    }
+
+    .eagle-camera-card-actions {
+        display: flex;
+        gap: 5px;
+        margin-top: 5px;
+    }
+
+    .eagle-camera-small {
+        flex: 1;
+        padding: 6px;
+        border: 0;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 10px;
+        font-weight: 700;
+    }
+
+    .eagle-camera-edit {
+        background: #0369a1;
+        color: #fff;
+    }
+
+    .eagle-camera-delete {
+        background: #991b1b;
+        color: #fff;
+    }
+
+    .eagle-camera-status {
+        font-size: 11px;
+        color: #94a3b8;
+        margin-top: 7px;
+        line-height: 1.4;
+    }
+    /* === EAGLE-EYE CAMERA UI END === */
+    </style>
+
     <div class="header-bar">
         <div class="brand">🦅 SENTRY v8.66</div>
 <button id="rainToggleBtn" onclick="toggleRainLayer()" class="nav-btn" style="background: #0284c7; color: white; border: none; padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 4px;">
@@ -704,6 +1009,57 @@ HTML_TEMPLATE = """
             <div id="modeToggleBtn" class="mode-btn" onclick="toggleTheme()">● LIGHT</div>
         </div>
     </div>
+
+    <!-- === EAGLE-EYE CAMERA MENU START === -->
+    <button id="eagleCameraMenuButton" onclick="eagleToggleCameraMenu()" aria-label="Kamera menüsü">☰</button>
+    <div id="eagleCameraBackdrop" onclick="eagleToggleCameraMenu()"></div>
+
+    <aside id="eagleCameraDrawer">
+        <div class="eagle-camera-title">
+            <span>📹 KAMERA YÖNETİMİ</span>
+            <button class="eagle-camera-close" onclick="eagleToggleCameraMenu()">×</button>
+        </div>
+
+        <div class="eagle-camera-section">
+            <h3>➕ Yeni / Düzenlenen Kamera</h3>
+
+            <input id="eagleCamName" class="eagle-camera-field"
+                   placeholder="Kamera adı (bayrak dahil yazılabilir)">
+
+            <input id="eagleCamLat" class="eagle-camera-field"
+                   type="number" step="any" placeholder="Enlem">
+
+            <input id="eagleCamLon" class="eagle-camera-field"
+                   type="number" step="any" placeholder="Boylam">
+
+            <input id="eagleCamUrl" class="eagle-camera-field"
+                   type="text"
+                   placeholder="YouTube Live / embed / HLS / kamera URL">
+
+            <select id="eagleCamType" class="eagle-camera-field">
+                <option value="yt">YouTube</option>
+                <option value="normal">Normal</option>
+                <option value="hls">HLS</option>
+                <option value="image">Görüntü</option>
+            </select>
+
+            <div class="eagle-camera-actions">
+                <button class="eagle-camera-btn eagle-camera-add"
+                        onclick="eagleSaveCamera()">KAYDET</button>
+                <button class="eagle-camera-btn eagle-camera-clear"
+                        onclick="eagleClearCameraForm()">TEMİZLE</button>
+            </div>
+
+            <div id="eagleCameraEditIndex" style="display:none"></div>
+            <div id="eagleCameraStatus" class="eagle-camera-status"></div>
+        </div>
+
+        <div class="eagle-camera-section">
+            <h3>📡 Kayıtlı Kameralar</h3>
+            <div id="eagleCameraList">Kameralar yükleniyor...</div>
+        </div>
+    </aside>
+    <!-- === EAGLE-EYE CAMERA MENU END === -->
 
     <div class="map-container">
         <div id="map" class="neon-map"></div>
@@ -1033,6 +1389,226 @@ setInterval(checkNewVisitor, 8000);
 setInterval(function() {
     location.reload();
 }, 180000);
+</script>
+
+
+<script>
+/* === EAGLE-EYE CAMERA JS START === */
+
+let eagleCameraData = [];
+
+function eagleToggleCameraMenu() {
+    document.getElementById('eagleCameraDrawer').classList.toggle('open');
+    document.getElementById('eagleCameraBackdrop').classList.toggle('open');
+}
+
+function eagleYouTubeEmbedUrl(url) {
+    let youtubeId = '';
+
+    try {
+        const u = new URL(url);
+
+        if (u.hostname.includes('youtu.be')) {
+            youtubeId = u.pathname.split('/').filter(Boolean)[0] || '';
+        } else if (u.hostname.includes('youtube.com')) {
+            if (u.pathname.startsWith('/embed/')) {
+                youtubeId = u.pathname.split('/')[2];
+            } else if (u.pathname.startsWith('/live/')) {
+                youtubeId = u.pathname.split('/')[2];
+            } else {
+                youtubeId = u.searchParams.get('v') || '';
+            }
+        }
+    } catch (e) {
+        console.error('YouTube URL HATASI:', e);
+    }
+
+    if (youtubeId) {
+        return 'https://www.youtube.com/embed/' + youtubeId + '?autoplay=1&mute=1';
+    }
+
+    return url;
+}
+
+async function eagleLoadCameras() {
+    const list = document.getElementById('eagleCameraList');
+
+    try {
+        const response = await fetch('/api/kameralar', { cache: 'no-store' });
+
+        if (!response.ok) {
+            throw new Error('HTTP ' + response.status);
+        }
+
+        eagleCameraData = await response.json();
+
+        if (!Array.isArray(eagleCameraData)) {
+            throw new Error('Geçersiz kamera verisi');
+        }
+
+        if (!eagleCameraData.length) {
+            list.innerHTML = '<div class="eagle-camera-status">Kayıtlı kamera yok.</div>';
+            return;
+        }
+
+        list.innerHTML = eagleCameraData.map((kamera, index) => {
+            const ad = kamera[0] ?? '';
+            const lat = kamera[1] ?? '';
+            const lon = kamera[2] ?? '';
+            const url = kamera[3] ?? '';
+            const tip = kamera[4] ?? '';
+
+            return `
+                <div class="eagle-camera-card">
+                    <div class="eagle-camera-card-title">${eagleEscapeHtml(index + 1 + '. ' + ad)}</div>
+                    <input class="eagle-camera-readonly" readonly value="${eagleEscapeAttr(ad)}">
+                    <input class="eagle-camera-readonly" readonly value="${eagleEscapeAttr(lat)}">
+                    <input class="eagle-camera-readonly" readonly value="${eagleEscapeAttr(lon)}">
+                    <input class="eagle-camera-readonly" readonly value="${eagleEscapeAttr(url)}">
+                    <input class="eagle-camera-readonly" readonly value="${eagleEscapeAttr(tip)}">
+
+                    <div class="eagle-camera-card-actions">
+                        <button class="eagle-camera-small eagle-camera-edit"
+                                onclick="eagleEditCamera(${index})">DÜZENLE</button>
+                        <button class="eagle-camera-small eagle-camera-delete"
+                                onclick="eagleDeleteCamera(${index})">SİL</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        list.innerHTML =
+            '<div class="eagle-camera-status">Kameralar yüklenemedi: ' +
+            eagleEscapeHtml(error.message) + '</div>';
+    }
+}
+
+function eagleEscapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function eagleEscapeAttr(value) {
+    return eagleEscapeHtml(value);
+}
+
+function eagleSetForm(kamera, index) {
+    document.getElementById('eagleCamName').value = kamera[0] ?? '';
+    document.getElementById('eagleCamLat').value = kamera[1] ?? '';
+    document.getElementById('eagleCamLon').value = kamera[2] ?? '';
+    document.getElementById('eagleCamUrl').value = kamera[3] ?? '';
+    document.getElementById('eagleCamType').value = kamera[4] ?? 'normal';
+    document.getElementById('eagleCameraEditIndex').textContent = index;
+    document.getElementById('eagleCameraStatus').textContent =
+        'Düzenleme modu: #' + (index + 1);
+}
+
+function eagleEditCamera(index) {
+    const kamera = eagleCameraData[index];
+
+    if (!kamera) {
+        return;
+    }
+
+    eagleSetForm(kamera, index);
+    document.getElementById('eagleCamName').focus();
+}
+
+function eagleClearCameraForm() {
+    document.getElementById('eagleCamName').value = '';
+    document.getElementById('eagleCamLat').value = '';
+    document.getElementById('eagleCamLon').value = '';
+    document.getElementById('eagleCamUrl').value = '';
+    document.getElementById('eagleCamType').value = 'yt';
+    document.getElementById('eagleCameraEditIndex').textContent = '';
+    document.getElementById('eagleCameraStatus').textContent = '';
+}
+
+function eagleGetCameraForm() {
+    const name = document.getElementById('eagleCamName').value.trim();
+    const lat = Number(document.getElementById('eagleCamLat').value);
+    const lon = Number(document.getElementById('eagleCamLon').value);
+    const url = document.getElementById('eagleCamUrl').value.trim();
+    const type = document.getElementById('eagleCamType').value;
+
+    if (!name || !url || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+        throw new Error('Ad, enlem, boylam ve URL alanları zorunludur.');
+    }
+
+    return [name, lat, lon, url, type];
+}
+
+async function eagleSaveCamera() {
+    const status = document.getElementById('eagleCameraStatus');
+
+    try {
+        const kamera = eagleGetCameraForm();
+        const editIndex = document.getElementById('eagleCameraEditIndex').textContent.trim();
+
+        const isEdit = editIndex !== '';
+        const endpoint = isEdit
+            ? '/api/kameralar/' + encodeURIComponent(editIndex)
+            : '/api/kameralar';
+
+        const response = await fetch(endpoint, {
+            method: isEdit ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(kamera)
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(result.error || ('HTTP ' + response.status));
+        }
+
+        status.textContent = isEdit
+            ? '✅ Kamera güncellendi.'
+            : '✅ Kamera eklendi.';
+
+        eagleClearCameraForm();
+        await eagleLoadCameras();
+
+    } catch (error) {
+        status.textContent = '❌ ' + error.message;
+    }
+}
+
+async function eagleDeleteCamera(index) {
+    if (!confirm('Bu kamera kaydını silmek istediğine emin misin?')) {
+        return;
+    }
+
+    const status = document.getElementById('eagleCameraStatus');
+
+    try {
+        const response = await fetch(
+            '/api/kameralar/' + encodeURIComponent(index),
+            { method: 'DELETE' }
+        );
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(result.error || ('HTTP ' + response.status));
+        }
+
+        status.textContent = '✅ Kamera silindi.';
+        eagleClearCameraForm();
+        await eagleLoadCameras();
+
+    } catch (error) {
+        status.textContent = '❌ ' + error.message;
+    }
+}
+
+eagleLoadCameras();
+
+/* === EAGLE-EYE CAMERA JS END === */
 </script>
 
 </body>
