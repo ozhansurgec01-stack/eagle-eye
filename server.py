@@ -249,6 +249,11 @@ from flask import Flask, render_template_string, request, make_response, jsonify
 import requests
 import feedparser
 import os
+
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
 from datetime import datetime, timedelta, timezone
 TR_TZ = timezone(timedelta(hours=3))
 import urllib.parse
@@ -264,10 +269,14 @@ visitor_ips_history = set()
 
 
 # === EAGLE-EYE KAMERA YONETIMI ===
-CAMERAS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kameralar.json")
+CAMERAS_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "kameralar.json"
+)
+CAMERAS_DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 
 
-def _kameralar_yukle():
+def _kameralar_json_yukle():
     try:
         with open(CAMERAS_FILE, "r", encoding="utf-8") as f:
             data = _json.load(f)
@@ -276,12 +285,139 @@ def _kameralar_yukle():
         return []
 
 
-def _kameralar_kaydet(data):
+def _kameralar_json_kaydet(data):
     tmp_file = CAMERAS_FILE + ".tmp"
     with open(tmp_file, "w", encoding="utf-8") as f:
         _json.dump(data, f, ensure_ascii=False, indent=2)
         f.write("\n")
     os.replace(tmp_file, CAMERAS_FILE)
+
+
+def _kamera_db_baglan():
+    if not CAMERAS_DATABASE_URL:
+        return None
+    if psycopg2 is None:
+        raise RuntimeError(
+            "DATABASE_URL tanımlı ancak psycopg2-binary kurulu değil."
+        )
+    return psycopg2.connect(
+        CAMERAS_DATABASE_URL,
+        connect_timeout=5
+    )
+
+
+def _kamera_db_hazirla():
+    conn = _kamera_db_baglan()
+    if conn is None:
+        return
+
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS eagle_eye_kameralar (
+                        id BIGSERIAL PRIMARY KEY,
+                        sira INTEGER NOT NULL,
+                        ad TEXT NOT NULL,
+                        lat DOUBLE PRECISION NOT NULL,
+                        lon DOUBLE PRECISION NOT NULL,
+                        url TEXT NOT NULL,
+                        tip TEXT NOT NULL
+                    )
+                """)
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM eagle_eye_kameralar"
+                )
+                sayi = cur.fetchone()[0]
+
+                if sayi == 0:
+                    mevcut = _kameralar_json_yukle()
+
+                    for i, kamera in enumerate(mevcut):
+                        if not _kamera_verisini_dogrula(kamera):
+                            continue
+
+                        ad, lat, lon, url, tip = kamera
+
+                        cur.execute(
+                            """
+                            INSERT INTO eagle_eye_kameralar
+                            (sira, ad, lat, lon, url, tip)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                            """,
+                            (
+                                i,
+                                ad,
+                                float(lat),
+                                float(lon),
+                                url,
+                                tip
+                            )
+                        )
+    finally:
+        conn.close()
+
+
+def _kameralar_yukle():
+    if not CAMERAS_DATABASE_URL:
+        return _kameralar_json_yukle()
+
+    _kamera_db_hazirla()
+
+    conn = _kamera_db_baglan()
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ad, lat, lon, url, tip
+                FROM eagle_eye_kameralar
+                ORDER BY sira, id
+            """)
+
+            return [
+                [row[0], row[1], row[2], row[3], row[4]]
+                for row in cur.fetchall()
+            ]
+    finally:
+        conn.close()
+
+
+def _kameralar_kaydet(data):
+    if not CAMERAS_DATABASE_URL:
+        return _kameralar_json_kaydet(data)
+
+    _kamera_db_hazirla()
+
+    conn = _kamera_db_baglan()
+
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM eagle_eye_kameralar"
+                )
+
+                for i, kamera in enumerate(data):
+                    ad, lat, lon, url, tip = kamera
+
+                    cur.execute(
+                        """
+                        INSERT INTO eagle_eye_kameralar
+                        (sira, ad, lat, lon, url, tip)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            i,
+                            ad,
+                            float(lat),
+                            float(lon),
+                            url,
+                            tip
+                        )
+                    )
+    finally:
+        conn.close()
 
 
 def _kamera_yonetici_mi():
@@ -320,7 +456,10 @@ def api_kameralar():
 @app.route("/api/kameralar", methods=["POST"])
 def api_kamera_ekle():
     if not _kamera_yonetici_mi():
-        return jsonify({"ok": False, "error": "Yetkisiz kamera yönetimi"}), 403
+        return jsonify({
+            "ok": False,
+            "error": "Yetkisiz kamera yönetimi"
+        }), 403
 
     kamera = request.get_json(silent=True)
 
@@ -334,13 +473,20 @@ def api_kamera_ekle():
     kameralar.append(kamera)
     _kameralar_kaydet(kameralar)
 
-    return jsonify({"ok": True, "kamera": kamera, "index": len(kameralar) - 1})
+    return jsonify({
+        "ok": True,
+        "kamera": kamera,
+        "index": len(kameralar) - 1
+    })
 
 
 @app.route("/api/kameralar/<int:index>", methods=["PUT"])
 def api_kamera_duzenle(index):
     if not _kamera_yonetici_mi():
-        return jsonify({"ok": False, "error": "Yetkisiz kamera yönetimi"}), 403
+        return jsonify({
+            "ok": False,
+            "error": "Yetkisiz kamera yönetimi"
+        }), 403
 
     kamera = request.get_json(silent=True)
 
@@ -353,28 +499,46 @@ def api_kamera_duzenle(index):
     kameralar = _kameralar_yukle()
 
     if index < 0 or index >= len(kameralar):
-        return jsonify({"ok": False, "error": "Kamera bulunamadı"}), 404
+        return jsonify({
+            "ok": False,
+            "error": "Kamera bulunamadı"
+        }), 404
 
     kameralar[index] = kamera
     _kameralar_kaydet(kameralar)
 
-    return jsonify({"ok": True, "kamera": kamera, "index": index})
+    return jsonify({
+        "ok": True,
+        "kamera": kamera,
+        "index": index
+    })
 
 
 @app.route("/api/kameralar/<int:index>", methods=["DELETE"])
 def api_kamera_sil(index):
     if not _kamera_yonetici_mi():
-        return jsonify({"ok": False, "error": "Yetkisiz kamera yönetimi"}), 403
+        return jsonify({
+            "ok": False,
+            "error": "Yetkisiz kamera yönetimi"
+        }), 403
 
     kameralar = _kameralar_yukle()
 
     if index < 0 or index >= len(kameralar):
-        return jsonify({"ok": False, "error": "Kamera bulunamadı"}), 404
+        return jsonify({
+            "ok": False,
+            "error": "Kamera bulunamadı"
+        }), 404
 
     silinen = kameralar.pop(index)
     _kameralar_kaydet(kameralar)
 
-    return jsonify({"ok": True, "silinen": silinen, "index": index})
+    return jsonify({
+        "ok": True,
+        "silinen": silinen,
+        "index": index
+    })
+
 
 # === EAGLE-EYE KAMERA YONETIMI SONU ===
 
@@ -891,6 +1055,22 @@ HTML_TEMPLATE = """
         color: #e2e8f0;
     }
 
+    #eagleCameraList {
+        max-height: 52vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 4px;
+    }
+
+    #eagleCameraList::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    #eagleCameraList::-webkit-scrollbar-thumb {
+        background: #334155;
+        border-radius: 8px;
+    }
+
     .eagle-camera-field {
         width: 100%;
         box-sizing: border-box;
@@ -987,6 +1167,73 @@ HTML_TEMPLATE = """
         color: #fff;
     }
 
+    .eagle-camera-watch {
+        background: #047857;
+        color: #fff;
+    }
+
+    #eagleCameraViewer {
+        position: fixed;
+        inset: 0;
+        z-index: 30000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0,0,0,.78);
+        padding: 18px;
+        box-sizing: border-box;
+    }
+
+    #eagleCameraViewer.open {
+        display: flex;
+    }
+
+    .eagle-camera-viewer-box {
+        width: min(900px, 96vw);
+        max-height: 94vh;
+        background: #020617;
+        border: 1px solid rgba(56,189,248,.45);
+        border-radius: 14px;
+        box-shadow: 0 15px 50px rgba(0,0,0,.65);
+        overflow: hidden;
+    }
+
+    .eagle-camera-viewer-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        color: #38bdf8;
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+    .eagle-camera-viewer-close {
+        border: 0;
+        background: transparent;
+        color: #94a3b8;
+        font-size: 25px;
+        cursor: pointer;
+        line-height: 1;
+    }
+
+    #eagleCameraViewerContent {
+        padding: 0 10px 10px;
+    }
+
+    #eagleCameraViewerContent iframe,
+    #eagleCameraViewerContent video,
+    #eagleCameraViewerContent img {
+        display: block;
+        width: 100%;
+        height: min(68vh, 560px);
+        border: 0;
+        border-radius: 9px;
+        background: #000;
+        object-fit: contain;
+    }
+
     .eagle-camera-status {
         font-size: 11px;
         color: #94a3b8;
@@ -1060,6 +1307,17 @@ HTML_TEMPLATE = """
         </div>
     </aside>
     <!-- === EAGLE-EYE CAMERA MENU END === -->
+
+    <div id="eagleCameraViewer" onclick="eagleCloseCameraViewer(event)">
+        <div class="eagle-camera-viewer-box" onclick="event.stopPropagation()">
+            <div class="eagle-camera-viewer-head">
+                <span id="eagleCameraViewerTitle">📹 Kamera</span>
+                <button class="eagle-camera-viewer-close"
+                        onclick="eagleCloseCameraViewer()">×</button>
+            </div>
+            <div id="eagleCameraViewerContent"></div>
+        </div>
+    </div>
 
     <div class="map-container">
         <div id="map" class="neon-map"></div>
@@ -1257,6 +1515,8 @@ HTML_TEMPLATE = """
                  .bindPopup("<div style='font-family:sans-serif; color:#111;'><b>✨ Meteor (NASA)</b><br><b>Tarih:</b> " + m.date + "<br><b>Enerji:</b> " + m.energy + " J</div>");
             }
         });
+
+
     </script>
 
 <script>
@@ -1460,18 +1720,17 @@ async function eagleLoadCameras() {
 
             return `
                 <div class="eagle-camera-card">
-                    <div class="eagle-camera-card-title">${eagleEscapeHtml(index + 1 + '. ' + ad)}</div>
-                    <input class="eagle-camera-readonly" readonly value="${eagleEscapeAttr(ad)}">
-                    <input class="eagle-camera-readonly" readonly value="${eagleEscapeAttr(lat)}">
-                    <input class="eagle-camera-readonly" readonly value="${eagleEscapeAttr(lon)}">
-                    <input class="eagle-camera-readonly" readonly value="${eagleEscapeAttr(url)}">
-                    <input class="eagle-camera-readonly" readonly value="${eagleEscapeAttr(tip)}">
+                    <div class="eagle-camera-card-title">
+                        <span>${eagleEscapeHtml(index + 1 + '. ' + ad)}</span>
+                    </div>
 
                     <div class="eagle-camera-card-actions">
+                        <button class="eagle-camera-small eagle-camera-watch"
+                                onclick="eagleWatchCamera(${index})">▶ İZLE</button>
                         <button class="eagle-camera-small eagle-camera-edit"
-                                onclick="eagleEditCamera(${index})">DÜZENLE</button>
+                                onclick="eagleEditCamera(${index})">✏ DÜZENLE</button>
                         <button class="eagle-camera-small eagle-camera-delete"
-                                onclick="eagleDeleteCamera(${index})">SİL</button>
+                                onclick="eagleDeleteCamera(${index})">🗑 SİL</button>
                     </div>
                 </div>
             `;
@@ -1516,6 +1775,147 @@ function eagleEditCamera(index) {
 
     eagleSetForm(kamera, index);
     document.getElementById('eagleCamName').focus();
+}
+
+
+async function eagleLoadHlsForViewer() {
+    if (window.Hls) return true;
+
+    return await new Promise(function(resolve) {
+        const existing = document.querySelector('script[data-eagle-hls="1"]');
+
+        if (existing) {
+            existing.addEventListener('load', function() { resolve(!!window.Hls); });
+            existing.addEventListener('error', function() { resolve(false); });
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
+        script.dataset.eagleHls = '1';
+
+        script.onload = function() {
+            resolve(!!window.Hls);
+        };
+
+        script.onerror = function() {
+            resolve(false);
+        };
+
+        document.head.appendChild(script);
+    });
+}
+
+async function eagleWatchCamera(index) {
+    const kamera = eagleCameraData[index];
+
+    if (!kamera) return;
+
+    const name = String(kamera[0] ?? 'Kamera');
+    const rawUrl = String(kamera[3] ?? '').trim();
+    const type = String(kamera[4] ?? 'normal').toLowerCase();
+
+    if (!rawUrl) return;
+
+    const viewer = document.getElementById('eagleCameraViewer');
+    const title = document.getElementById('eagleCameraViewerTitle');
+    const content = document.getElementById('eagleCameraViewerContent');
+
+    title.textContent = '📹 ' + name;
+    content.innerHTML = '';
+
+    viewer.classList.add('open');
+
+    if (type === 'yt') {
+        const iframe = document.createElement('iframe');
+
+        iframe.src = eagleYouTubeEmbedUrl(rawUrl);
+        iframe.allow =
+            'autoplay; encrypted-media; picture-in-picture';
+        iframe.allowFullscreen = true;
+
+        content.appendChild(iframe);
+        return;
+    }
+
+    if (type === 'image') {
+        const img = document.createElement('img');
+
+        img.src = rawUrl;
+        img.alt = name;
+
+        content.appendChild(img);
+        return;
+    }
+
+    if (type === 'hls') {
+        const video = document.createElement('video');
+
+        video.controls = true;
+        video.autoplay = true;
+        video.muted = true;
+        video.playsInline = true;
+
+        content.appendChild(video);
+
+        if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = rawUrl;
+            video.play().catch(function(){});
+            return;
+        }
+
+        const hlsReady = await eagleLoadHlsForViewer();
+
+        if (hlsReady && window.Hls && Hls.isSupported()) {
+            const hls = new Hls();
+
+            hls.loadSource(rawUrl);
+            hls.attachMedia(video);
+
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                video.play().catch(function(){});
+            });
+
+            video._eagleHls = hls;
+            return;
+        }
+
+        content.innerHTML =
+            '<div style="padding:30px;text-align:center;color:#e2e8f0;">' +
+            'Bu tarayıcı HLS canlı yayını oynatamıyor.' +
+            '</div>';
+
+        return;
+    }
+
+    const iframe = document.createElement('iframe');
+
+    iframe.src = rawUrl;
+    iframe.allow =
+        'autoplay; encrypted-media; picture-in-picture';
+    iframe.allowFullscreen = true;
+
+    content.appendChild(iframe);
+}
+
+function eagleCloseCameraViewer(event) {
+    if (event && event.target !== event.currentTarget) return;
+
+    const viewer = document.getElementById('eagleCameraViewer');
+    const content = document.getElementById('eagleCameraViewerContent');
+
+    if (!viewer) return;
+
+    const video = content.querySelector('video');
+
+    if (video && video._eagleHls) {
+        try {
+            video._eagleHls.destroy();
+        } catch (e) {}
+    }
+
+    content.innerHTML = '';
+    viewer.classList.remove('open');
 }
 
 function eagleClearCameraForm() {

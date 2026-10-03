@@ -3,3 +3,4 @@ requests
 feedparser
 gunicorn
 python-dotenv
+psycopg2-binary
