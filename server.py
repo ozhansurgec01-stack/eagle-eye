@@ -1050,9 +1050,11 @@ HTML_TEMPLATE = """
         color: #fff;
         box-shadow: 10px 0 35px rgba(0,0,0,.45);
         transition: left .22s ease;
-        overflow-y: auto;
+        overflow: hidden;
         box-sizing: border-box;
         padding: 18px;
+        display: flex;
+        flex-direction: column;
     }
 
     #eagleCameraDrawer.open {
@@ -1096,7 +1098,8 @@ HTML_TEMPLATE = """
     }
 
     #eagleCameraList {
-        max-height: 52vh;
+        flex: 1 1 auto;
+        min-height: 0;
         overflow-y: auto;
         overflow-x: hidden;
         padding-right: 4px;
