@@ -470,6 +470,46 @@ def api_kamera_ekle():
         }), 400
 
     kameralar = _kameralar_yukle()
+
+    def _kamera_url_anahtari(k):
+        if not isinstance(k, list) or len(k) < 4:
+            return ""
+        url = str(k[3]).strip()
+        try:
+            from urllib.parse import urlparse, parse_qs
+            parsed = urlparse(url)
+            host = parsed.netloc.lower()
+            path = parsed.path.rstrip("/")
+
+            if "youtube.com" in host and path.startswith("/live/"):
+                video_id = path.split("/live/", 1)[1].split("/", 1)[0]
+                return "youtube:" + video_id
+
+            if "youtube.com" in host and path.startswith("/embed/"):
+                video_id = path.split("/embed/", 1)[1].split("/", 1)[0]
+                return "youtube:" + video_id
+
+            if "youtu.be" in host:
+                video_id = path.lstrip("/").split("/", 1)[0]
+                return "youtube:" + video_id
+
+            if "youtube.com" in host:
+                video_id = parse_qs(parsed.query).get("v", [""])[0]
+                if video_id:
+                    return "youtube:" + video_id
+        except Exception:
+            pass
+
+        return url
+
+    yeni_anahtar = _kamera_url_anahtari(kamera)
+
+    if any(_kamera_url_anahtari(k) == yeni_anahtar for k in kameralar):
+        return jsonify({
+            "ok": False,
+            "error": "Bu kamera zaten kayıtlı."
+        }), 409
+
     kameralar.append(kamera)
     _kameralar_kaydet(kameralar)
 
@@ -1240,6 +1280,11 @@ HTML_TEMPLATE = """
         margin-top: 7px;
         line-height: 1.4;
     }
+
+    .eagle-camera-status.eagle-success {
+        color: #22c55e;
+        font-weight: 700;
+    }
     /* === EAGLE-EYE CAMERA UI END === */
     </style>
 
@@ -1966,11 +2011,13 @@ async function eagleSaveCamera() {
             throw new Error(result.error || ('HTTP ' + response.status));
         }
 
-        status.textContent = isEdit
-            ? '✅ Kamera güncellendi.'
-            : '✅ Kamera eklendi.';
-
         eagleClearCameraForm();
+
+        status.className = 'eagle-camera-status eagle-success';
+        status.textContent = isEdit
+            ? '✅ Kamera başarı ile güncellenmiştir.'
+            : '✅ Kamera başarı ile eklenmiştir.';
+
         await eagleLoadCameras();
 
     } catch (error) {
