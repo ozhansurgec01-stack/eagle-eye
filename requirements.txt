@@ -4,3 +4,4 @@ feedparser
 gunicorn
 python-dotenv
 psycopg2-binary
+turso_serverless

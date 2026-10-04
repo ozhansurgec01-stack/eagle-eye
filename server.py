@@ -254,6 +254,11 @@ try:
     import psycopg2
 except ImportError:
     psycopg2 = None
+
+try:
+    import turso_serverless
+except ImportError:
+    turso_serverless = None
 from datetime import datetime, timedelta, timezone
 TR_TZ = timezone(timedelta(hours=3))
 import urllib.parse
@@ -273,7 +278,9 @@ CAMERAS_FILE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     "kameralar.json"
 )
-CAMERAS_DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+
+TURSO_DATABASE_URL = os.environ.get("TURSO_DATABASE_URL", "").strip()
+TURSO_AUTH_TOKEN = os.environ.get("TURSO_AUTH_TOKEN", "").strip()
 
 
 def _kameralar_json_yukle():
@@ -294,16 +301,21 @@ def _kameralar_json_kaydet(data):
 
 
 def _kamera_db_baglan():
-    if not CAMERAS_DATABASE_URL:
+    if not (TURSO_DATABASE_URL and TURSO_AUTH_TOKEN):
         return None
-    if psycopg2 is None:
+
+    if turso_serverless is None:
         raise RuntimeError(
-            "DATABASE_URL tanımlı ancak psycopg2-binary kurulu değil."
+            "TURSO_DATABASE_URL/TURSO_AUTH_TOKEN tanımlı ancak "
+            "turso_serverless kurulu değil."
         )
-    return psycopg2.connect(
-        CAMERAS_DATABASE_URL,
-        connect_timeout=5
+
+    db = turso_serverless.connect(
+        TURSO_DATABASE_URL,
+        auth_token=TURSO_AUTH_TOKEN
     )
+    db.row_factory = turso_serverless.Row
+    return db
 
 
 def _kamera_db_hazirla():
@@ -312,110 +324,91 @@ def _kamera_db_hazirla():
         return
 
     try:
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS eagle_eye_kameralar (
-                        id BIGSERIAL PRIMARY KEY,
-                        sira INTEGER NOT NULL,
-                        ad TEXT NOT NULL,
-                        lat DOUBLE PRECISION NOT NULL,
-                        lon DOUBLE PRECISION NOT NULL,
-                        url TEXT NOT NULL,
-                        tip TEXT NOT NULL
-                    )
-                """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS eagle_eye_kameralar (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sira INTEGER NOT NULL,
+                ad TEXT NOT NULL,
+                lat REAL NOT NULL,
+                lon REAL NOT NULL,
+                url TEXT NOT NULL,
+                tip TEXT NOT NULL
+            )
+        """)
 
-                cur.execute(
-                    "SELECT COUNT(*) FROM eagle_eye_kameralar"
+        row = conn.execute(
+            "SELECT COUNT(*) AS sayi FROM eagle_eye_kameralar"
+        ).fetchone()
+        sayi = int(row["sayi"])
+
+        if sayi == 0:
+            mevcut = _kameralar_json_yukle()
+
+            for i, kamera in enumerate(mevcut):
+                if not _kamera_verisini_dogrula(kamera):
+                    continue
+
+                ad, lat, lon, url, tip = kamera
+
+                conn.execute(
+                    """
+                    INSERT INTO eagle_eye_kameralar
+                    (sira, ad, lat, lon, url, tip)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (i, ad, float(lat), float(lon), url, tip)
                 )
-                sayi = cur.fetchone()[0]
 
-                if sayi == 0:
-                    mevcut = _kameralar_json_yukle()
-
-                    for i, kamera in enumerate(mevcut):
-                        if not _kamera_verisini_dogrula(kamera):
-                            continue
-
-                        ad, lat, lon, url, tip = kamera
-
-                        cur.execute(
-                            """
-                            INSERT INTO eagle_eye_kameralar
-                            (sira, ad, lat, lon, url, tip)
-                            VALUES (%s, %s, %s, %s, %s, %s)
-                            """,
-                            (
-                                i,
-                                ad,
-                                float(lat),
-                                float(lon),
-                                url,
-                                tip
-                            )
-                        )
+        conn.commit()
     finally:
         conn.close()
 
 
 def _kameralar_yukle():
-    if not CAMERAS_DATABASE_URL:
+    if not (TURSO_DATABASE_URL and TURSO_AUTH_TOKEN):
         return _kameralar_json_yukle()
 
     _kamera_db_hazirla()
-
     conn = _kamera_db_baglan()
 
     try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT ad, lat, lon, url, tip
-                FROM eagle_eye_kameralar
-                ORDER BY sira, id
-            """)
+        rows = conn.execute("""
+            SELECT ad, lat, lon, url, tip
+            FROM eagle_eye_kameralar
+            ORDER BY sira, id
+        """).fetchall()
 
-            return [
-                [row[0], row[1], row[2], row[3], row[4]]
-                for row in cur.fetchall()
-            ]
+        return [
+            [row["ad"], row["lat"], row["lon"], row["url"], row["tip"]]
+            for row in rows
+        ]
     finally:
         conn.close()
 
 
 def _kameralar_kaydet(data):
-    if not CAMERAS_DATABASE_URL:
+    if not (TURSO_DATABASE_URL and TURSO_AUTH_TOKEN):
         return _kameralar_json_kaydet(data)
 
     _kamera_db_hazirla()
-
     conn = _kamera_db_baglan()
 
     try:
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "DELETE FROM eagle_eye_kameralar"
-                )
+        conn.execute("DELETE FROM eagle_eye_kameralar")
 
-                for i, kamera in enumerate(data):
-                    ad, lat, lon, url, tip = kamera
+        for i, kamera in enumerate(data):
+            ad, lat, lon, url, tip = kamera
 
-                    cur.execute(
-                        """
-                        INSERT INTO eagle_eye_kameralar
-                        (sira, ad, lat, lon, url, tip)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                        """,
-                        (
-                            i,
-                            ad,
-                            float(lat),
-                            float(lon),
-                            url,
-                            tip
-                        )
-                    )
+            conn.execute(
+                """
+                INSERT INTO eagle_eye_kameralar
+                (sira, ad, lat, lon, url, tip)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (i, ad, float(lat), float(lon), url, tip)
+            )
+
+        conn.commit()
     finally:
         conn.close()
 
