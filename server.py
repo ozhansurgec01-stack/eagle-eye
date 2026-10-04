@@ -1781,19 +1781,6 @@ async function eagleLoadCameras() {
             `;
         }).join('');
 
-        const debugStatus = document.getElementById('eagleCameraStatus');
-        if (debugStatus) {
-            debugStatus.textContent =
-                'DEBUG — API: ' + eagleCameraData.length +
-                ' | DOM: ' + list.querySelectorAll('.eagle-camera-card').length +
-                ' | Son: ' + (eagleCameraData[eagleCameraData.length - 1]?.[0] || '');
-        }
-
-        console.log('EAGLE CAMERA DEBUG:', {
-            apiCount: eagleCameraData.length,
-            domCards: list.querySelectorAll('.eagle-camera-card').length,
-            lastCamera: eagleCameraData[eagleCameraData.length - 1]?.[0] || ''
-        });
     } catch (error) {
         list.innerHTML =
             '<div class="eagle-camera-status">Kameralar yüklenemedi: ' +
