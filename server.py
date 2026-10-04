@@ -1037,7 +1037,8 @@ HTML_TEMPLATE = """
         left: -370px;
         width: 350px;
         max-width: calc(100vw - 30px);
-        height: 100vh;
+        height: 100dvh;
+        max-height: 100dvh;
         z-index: 19999;
         background: var(--bg-header);
         color: #fff;
@@ -1045,6 +1046,9 @@ HTML_TEMPLATE = """
         transition: left .22s ease;
         overflow-y: auto;
         overflow-x: hidden;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-y;
         box-sizing: border-box;
         padding: 18px;
     }
