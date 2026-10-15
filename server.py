@@ -656,15 +656,47 @@ def get_visitor_count():
     return 1
 
 def increment_visitor_count():
-    ua = request.headers.get('User-Agent', '').lower()
-    is_bot = any(b in ua for b in ['bot', 'crawl', 'spider', 'render', 'uptime', 'ping', 'axios', 'postman', 'go-http-client', 'head', 'facebookexternalhit', 'facebookcatalog', 'whatsapp', 'telegram', 'discordbot', 'slackbot', 'linkedinbot', 'twitterbot', 'skypeuripreview', 'w3c_validator', 'pingdom', 'gtmetrix'])
+    ua = request.headers.get("User-Agent", "").lower()
+    is_bot = any(b in ua for b in [
+        "bot", "crawl", "spider", "render", "uptime", "ping",
+        "axios", "postman", "go-http-client", "head",
+        "facebookexternalhit", "facebookcatalog", "whatsapp",
+        "telegram", "discordbot", "slackbot", "linkedinbot",
+        "twitterbot", "skypeuripreview", "w3c_validator",
+        "pingdom", "gtmetrix"
+    ])
     if is_bot:
         return get_visitor_count()
+
     try:
-        requests.get(f"{COUNTER_API_BASE}/up", timeout=2, headers=_counterapi_headers())
-        return get_visitor_count()
-    except Exception as e:
-        print("Sayac artirma hatasi:", e)
+        r = requests.get(
+            f"{COUNTER_API_BASE}/up",
+            timeout=5,
+            headers=_counterapi_headers()
+        )
+        r.raise_for_status()
+
+        stats = requests.get(
+            f"{COUNTER_API_BASE}/stats",
+            timeout=5,
+            headers=_counterapi_headers()
+        )
+        stats.raise_for_status()
+        payload = stats.json()
+        count = payload.get("data", {}).get("up_count")
+
+        if isinstance(count, int):
+            try:
+                with open(COUNTER_FILE, "w") as f:
+                    f.write(str(count))
+            except OSError as e:
+                print("Sayac dosyasi yazilamadi:", e)
+            return count
+
+        print("Sayac istatistik yanitinda up_count bulunamadi:", stats.text[:300])
+    except (requests.RequestException, ValueError, AttributeError) as e:
+        print("Sayac artirma/okuma hatasi:", e)
+
     return get_visitor_count()
 
 HTML_TEMPLATE = """
