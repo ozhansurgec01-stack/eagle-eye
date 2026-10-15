@@ -2271,6 +2271,8 @@ def ziyaretciler():
     """
     return html
 
+_earthquake_cache = {"data": None, "ts": 0}
+
 @app.route("/")
 def index():
     global visitor_count
@@ -2434,32 +2436,48 @@ def index():
 
     earthquakes = []
     map_quakes = []
-    try:
-        # Turkiye ve cevresi icin USGS API'si (whitelist dostu, resmi/global kaynak)
-        usgs_url = (
-            "https://earthquake.usgs.gov/fdsnws/event/1/query"
-            "?format=geojson&minmagnitude=4.0"
-            "&minlatitude=35.5&maxlatitude=42.5"
-            "&minlongitude=25.5&maxlongitude=45.0"
-            "&orderby=time&limit=20"
-        )
-        q_res = requests.get(usgs_url, timeout=5).json()
-        for feature in q_res.get("features", []):
-            props = feature.get("properties", {})
-            geom = feature.get("geometry", {})
-            coords = geom.get("coordinates", [])
-            if len(coords) >= 2:
+    now = _time.time()
+    cached = _earthquake_cache["data"]
+    if now - _earthquake_cache["ts"] < 300:
+        earthquakes = list(cached[0])
+        map_quakes = list(cached[1])
+    else:
+        try:
+            usgs_url = (
+                "https://earthquake.usgs.gov/fdsnws/event/1/query"
+                "?format=geojson&minmagnitude=4.0"
+                "&minlatitude=35.5&maxlatitude=42.5"
+                "&minlongitude=25.5&maxlongitude=45.0"
+                "&orderby=time&limit=20"
+            )
+            q_response = requests.get(usgs_url, timeout=(2, 3))
+            q_response.raise_for_status()
+            q_res = q_response.json()
+            fresh_quakes = []
+            fresh_map_quakes = []
+            for feature in q_res.get("features", []):
+                props = feature.get("properties", {})
+                coords = feature.get("geometry", {}).get("coordinates", [])
+                if len(coords) < 2:
+                    continue
                 lng, lat = coords[0], coords[1]
                 depth = coords[2] if len(coords) > 2 else 0
                 mag = props.get("mag", 0)
                 title = props.get("place", "Bilinmeyen konum")
                 time_ms = props.get("time", 0)
                 date_val = datetime.utcfromtimestamp(time_ms / 1000).strftime("%Y-%m-%d %H:%M:%S") if time_ms else "Güncel"
-
-                earthquakes.append({"title": title, "date_str": date_val, "mag": mag, "depth": depth, "lat": lat, "lon": lng})
-                map_quakes.append({"lat": lat, "lon": lng, "mag": mag, "depth": depth, "title": title, "date_str": date_val})
-    except Exception as e:
-        print("Deprem verisi alinamadi (USGS):", e)
+                fresh_quakes.append({"title": title, "date_str": date_val, "mag": mag, "depth": depth, "lat": lat, "lon": lng})
+                fresh_map_quakes.append({"lat": lat, "lon": lng, "mag": mag, "depth": depth, "title": title, "date_str": date_val})
+            earthquakes = fresh_quakes
+            map_quakes = fresh_map_quakes
+            _earthquake_cache["data"] = (list(earthquakes), list(map_quakes))
+            _earthquake_cache["ts"] = now
+        except Exception as e:
+            print("Deprem verisi alinamadi (USGS):", e)
+            _earthquake_cache["ts"] = now
+            if cached is not None:
+                earthquakes = list(cached[0])
+                map_quakes = list(cached[1])
 
     events = []
     try:
