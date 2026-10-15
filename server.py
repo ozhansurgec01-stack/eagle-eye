@@ -636,23 +636,31 @@ def _counterapi_headers():
 
 def get_visitor_count():
     try:
-        r = requests.get(COUNTER_API_BASE, timeout=2, headers=_counterapi_headers())
-        if r.status_code == 200:
-            count = r.json()["data"]["up_count"]
+        r = requests.get(
+            f"{COUNTER_API_BASE}/stats",
+            timeout=5,
+            headers=_counterapi_headers()
+        )
+        r.raise_for_status()
+        payload = r.json()
+        count = payload.get("data", {}).get("up_count")
+        if isinstance(count, int):
             try:
                 with open(COUNTER_FILE, "w") as f:
                     f.write(str(count))
-            except:
-                pass
+            except OSError as e:
+                print("Sayac dosyasi yazilamadi:", e)
             return count
-    except Exception as e:
+        print("Sayac istatistik yanitinda up_count bulunamadi:", r.text[:300])
+    except (requests.RequestException, ValueError, AttributeError) as e:
         print("Sayac okuma hatasi:", e)
+
     if os.path.exists(COUNTER_FILE):
         try:
             with open(COUNTER_FILE, "r") as f:
                 return int(f.read().strip())
-        except:
-            return 1
+        except (OSError, ValueError):
+            pass
     return 1
 
 def increment_visitor_count():
