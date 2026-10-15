@@ -2290,7 +2290,7 @@ def index():
     is_owner = is_owner_link or is_owner_cookie
     
     # Yerel test IP'lerinde sayacı arttırma
-    is_local = user_ip in ["127.0.0.1", "localhost"] or user_ip.startswith("192.168.")
+    is_local = user_ip in ["127.0.0.1", "localhost"] or user_ip.startswith(("192.168.", "10."))
     has_visited_cookie = request.cookies.get("eagle_visited") == "1"
     is_new_real_visitor = False
     if not is_owner and not is_local and not has_visited_cookie:
