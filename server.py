@@ -750,6 +750,35 @@ HTML_TEMPLATE = """
         .brand { color: var(--brand-color); font-weight: 800; font-size: 0.9rem; letter-spacing: 0.5px; }
         
         .header-right { display: flex; align-items: center; gap: 6px; }
+
+        /* SENTRY header: mobil hizalama */
+        .header-bar { gap: 6px; }
+        #rainToggleBtn, #satelliteToggleBtn {
+            flex: 0 0 auto;
+            white-space: nowrap;
+        }
+        @media (max-width: 600px) {
+            .header-bar {
+                flex-wrap: wrap;
+                justify-content: flex-start;
+                gap: 6px;
+                padding: 7px 8px;
+            }
+            .brand {
+                flex: 0 0 auto;
+                margin-right: auto;
+            }
+            #rainToggleBtn, #satelliteToggleBtn {
+                padding: 5px 7px !important;
+                font-size: 10px !important;
+                gap: 3px !important;
+            }
+            .header-right {
+                margin-left: auto;
+                gap: 4px;
+            }
+        }
+
         .clock-badge { font-size: 0.7rem; background: rgba(15, 23, 42, 0.8); color: #38bdf8; padding: 4px 8px; border-radius: 10px; font-weight: 700; border: 1px solid rgba(56, 189, 248, 0.2); display: flex; align-items: center; gap: 4px; font-family: monospace; letter-spacing: 0.5px; }
         .visitor-badge { font-size: 0.7rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 4px 8px; border-radius: 10px; font-weight: 700; border: 1px solid rgba(56, 189, 248, 0.3); display: flex; align-items: center; gap: 4px; }
         
@@ -1329,7 +1358,10 @@ HTML_TEMPLATE = """
 <button id="rainToggleBtn" onclick="toggleRainLayer()" class="nav-btn" style="background: #0284c7; color: white; border: none; padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 4px;">
     🌧️ YAĞIŞ <span id="rainStatus" style="font-size: 9px; opacity: 0.9;">(AÇIK)</span>
 </button>
-        <div class="header-right">
+        <button id="satelliteToggleBtn" onclick="toggleSatelliteLayer()" class="nav-btn" style="background:#475569;color:white;border:1px solid #64748b;padding:6px 10px;border-radius:8px;font-size:11px;font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:4px;">
+    🛰️ UYDU <span id="satelliteStatus" style="font-size:9px;opacity:.9;">(KAPALI)</span>
+</button>
+<div class="header-right">
             <div class="clock-badge" id="liveClock">⏳ --:--:--</div>
             <div class="visitor-badge">
                 👁️ {{ visitor_count }}
@@ -1402,6 +1434,7 @@ HTML_TEMPLATE = """
 
     <div class="map-container">
         <div id="map" class="neon-map"></div>
+
     </div>
 
     <div class="content-section">
@@ -1507,32 +1540,544 @@ HTML_TEMPLATE = """
             maxZoom: 19, attribution: '&copy; OpenStreetMap'
         }).addTo(map);
 
-        var rainLayer = null;
-        fetch('https://api.rainviewer.com/public/weather-maps.json')
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                var host = data.host;
-                var frames = data.radar.nowcast && data.radar.nowcast.length > 0 ? data.radar.nowcast : data.radar.past;
-                var path = frames[frames.length - 1].path;
-                rainLayer = L.tileLayer(host + path + '/256/{z}/{x}/{y}/2/1_1.png', {
-                    opacity: 0.6, zIndex: 400
-                }).addTo(map);
-            })
-            .catch(function(err) { console.log('RainViewer yuklenemedi:', err); });
+        // Uydu, radar ve işaretçiler ayrı katman sıralarında tutulur.
+        map.createPane("satellitePane");
+        map.getPane("satellitePane").style.zIndex = 250;
 
-        function toggleRainLayer() {
-            var status = document.getElementById('rainStatus');
-            var btn = document.getElementById('rainToggleBtn');
-            if (rainLayer && map.hasLayer(rainLayer)) {
-                map.removeLayer(rainLayer);
-                if(status) status.innerText = '(KAPALI)';
-                if(btn) { btn.style.opacity = '1'; btn.style.background = '#dc2626'; }
-            } else {
-                map.addLayer(rainLayer);
-                if(status) status.innerText = '(AÇIK)';
-                if(btn) { btn.style.opacity = '1'; btn.style.background = '#0284c7'; }
+        map.createPane("radarPane");
+        map.getPane("radarPane").style.zIndex = 300;
+
+        var satelliteEnabled = false;
+        var satelliteRefreshTimer = null;
+        var satelliteLayer = null;
+
+        // Uydu görüntüsü haritanın o an görünen alanını kaplar.
+        // EUMETSAT MSG SEVIRI IR 10.8 μm kızılötesi uydu katmanı.
+        var satelliteTime = null;
+        var satelliteTimeFetchedAt = 0;
+        var satelliteTimePromise = null;
+
+        async function getLatestSatelliteTime(forceRefresh) {
+            var now = Date.now();
+
+            if (!forceRefresh && satelliteTime &&
+                now - satelliteTimeFetchedAt < 10 * 60 * 1000) {
+                return satelliteTime;
+            }
+
+            if (satelliteTimePromise) return satelliteTimePromise;
+
+            satelliteTimePromise = (async function() {
+                var response = await fetch(
+                    "https://view.eumetsat.int/geoserver/wms" +
+                    "?service=WMS&version=1.1.1&request=GetCapabilities&_=" +
+                    Date.now(),
+                    { cache: "no-store" }
+                );
+
+                if (!response.ok) {
+                    throw new Error("EUMETSAT zaman bilgisi alınamadı: HTTP " +
+                        response.status);
+                }
+
+                var xmlText = await response.text();
+                var xml = new DOMParser().parseFromString(
+                    xmlText, "application/xml"
+                );
+
+                if (xml.getElementsByTagName("parsererror").length) {
+                    throw new Error("EUMETSAT XML yanıtı okunamadı.");
+                }
+
+                var layers = xml.getElementsByTagName("Layer");
+                var latestTime = null;
+
+                for (var i = 0; i < layers.length; i++) {
+                    var names = layers[i].getElementsByTagName("Name");
+                    if (!names.length ||
+                        names[0].textContent.trim() !== "msg_fes:ir108") {
+                        continue;
+                    }
+
+                    var extents = layers[i].getElementsByTagName("Extent");
+
+                    for (var j = 0; j < extents.length; j++) {
+                        if (extents[j].getAttribute("name") === "time") {
+                            latestTime = extents[j].getAttribute("default");
+                            break;
+                        }
+                    }
+                    break;
+                }
+
+                if (!latestTime) {
+                    throw new Error("IR108 güncel görüntü zamanı bulunamadı.");
+                }
+
+                satelliteTime = latestTime;
+                satelliteTimeFetchedAt = Date.now();
+                return satelliteTime;
+            })();
+
+            try {
+                return await satelliteTimePromise;
+            } finally {
+                satelliteTimePromise = null;
             }
         }
+
+        // Görüntü, haritanın o an görünen coğrafi alanını kaplar.
+        async function getInfraredSatelliteView(forceTimeRefresh) {
+            var bounds = map.getBounds();
+            var size = map.getSize();
+            var time = await getLatestSatelliteTime(!!forceTimeRefresh);
+
+            var width = 768;
+            var height = Math.max(256, Math.min(
+                1024,
+                Math.round(width * size.y / Math.max(1, size.x))
+            ));
+
+            // WMS görüntüsünü Leaflet haritasıyla aynı projeksiyonda iste.
+            var maxMercatorLat = 85.0511287798;
+            var southWest = L.CRS.EPSG3857.project(
+                L.latLng(
+                    Math.max(-maxMercatorLat, Math.min(maxMercatorLat, bounds.getSouth())),
+                    bounds.getWest()
+                )
+            );
+            var northEast = L.CRS.EPSG3857.project(
+                L.latLng(
+                    Math.max(-maxMercatorLat, Math.min(maxMercatorLat, bounds.getNorth())),
+                    bounds.getEast()
+                )
+            );
+
+            var params = new URLSearchParams({
+                service: "WMS",
+                version: "1.1.1",
+                request: "GetMap",
+                layers: "msg_fes:ir108",
+                styles: "raster",
+                format: "image/jpeg",
+                transparent: "false",
+                srs: "EPSG:3857",
+                width: String(width),
+                height: String(height),
+                bbox: [
+                    southWest.x,
+                    southWest.y,
+                    northEast.x,
+                    northEast.y
+                ].join(","),
+                time: time
+            });
+
+            return {
+                bounds: bounds,
+                url: "https://view.eumetsat.int/geoserver/wms?" +
+                    params.toString() + "&_=" + Date.now()
+            };
+        }
+
+        async function refreshSatelliteView(forceTimeRefresh) {
+            if (!satelliteEnabled || !satelliteLayer) return;
+
+            try {
+                var view = await getInfraredSatelliteView(forceTimeRefresh);
+
+                if (!satelliteEnabled || !satelliteLayer) return;
+
+                satelliteLayer.setBounds(view.bounds);
+                satelliteLayer.setUrl(view.url);
+            } catch (error) {
+                console.error("[UYDU] Yenileme hatası:", error);
+            }
+        }
+
+        map.on("moveend", function() {
+            if (satelliteEnabled) refreshSatelliteView(false);
+        });
+
+        function toggleSatelliteLayer() {
+            var status = document.getElementById("satelliteStatus");
+            var button = document.getElementById("satelliteToggleBtn");
+
+            satelliteEnabled = !satelliteEnabled;
+
+            if (satelliteEnabled) {
+                if (status) status.innerText = "(YÜKLENİYOR)";
+
+                (async function() {
+                    try {
+                        var satelliteView =
+                            await getInfraredSatelliteView(true);
+
+                        if (!satelliteEnabled) return;
+
+                        satelliteLayer = L.imageOverlay(
+                            satelliteView.url,
+                            satelliteView.bounds,
+                            {
+                                pane: "satellitePane",
+                                opacity: 0.55,
+                                interactive: false
+                            }
+                        );
+
+                        satelliteLayer.on("load", function() {
+                            console.log("[UYDU] IR 10.8 μm görüntüsü yüklendi.");
+                            if (status && satelliteEnabled) {
+                                status.innerText = "(AÇIK)";
+                            }
+                        });
+
+                        satelliteLayer.on("error", function() {
+                            console.error("[UYDU] IR görüntüsü yüklenemedi.");
+                            if (status && satelliteEnabled) {
+                                status.innerText = "(GÖRÜNTÜ HATASI)";
+                            }
+                        });
+
+                        satelliteLayer.addTo(map);
+
+                        if (satelliteRefreshTimer !== null) {
+                            clearInterval(satelliteRefreshTimer);
+                        }
+
+                        satelliteRefreshTimer = setInterval(function() {
+                            if (satelliteEnabled && satelliteLayer &&
+                                map.hasLayer(satelliteLayer)) {
+                                refreshSatelliteView(true);
+                            }
+                        }, 10 * 60 * 1000);
+
+                    } catch (error) {
+                        console.error("[UYDU] Açılış hatası:", error);
+                        if (status && satelliteEnabled) {
+                            status.innerText = "(BAĞLANTI HATASI)";
+                        }
+                    }
+                })();
+
+            } else {
+                if (satelliteRefreshTimer !== null) {
+                    clearInterval(satelliteRefreshTimer);
+                    satelliteRefreshTimer = null;
+                }
+
+                if (satelliteLayer && map.hasLayer(satelliteLayer)) {
+                    map.removeLayer(satelliteLayer);
+                }
+                satelliteLayer = null;
+            }
+
+            if (status) {
+                status.innerText = satelliteEnabled ? "(YÜKLENİYOR)" : "(KAPALI)";
+            }
+            if (button) {
+                button.style.background =
+                    satelliteEnabled ? "#0369a1" : "#475569";
+            }
+        }
+
+        var rainLayer = null;
+        var radarFrames = [];
+        var radarFrameIndex = 0;
+        var radarPlaying = false;
+        var radarTimer = null;
+        var radarPendingLayer = null;
+        var radarRenderToken = 0;
+        var radarEnabled = true;
+        var radarHost = "";
+
+        function radarTileUrl(frame) {
+            return radarHost + frame.path + "/256/{z}/{x}/{y}/2/1_1.png";
+        }
+
+        function displayRadarFrame(index, onReady) {
+            if (!radarFrames.length) {
+                if (onReady) onReady(false);
+                return;
+            }
+
+            index = Math.max(0, Math.min(radarFrames.length - 1, Number(index)));
+
+            var frame = radarFrames[index];
+            var url = radarTileUrl(frame);
+
+            // Radar kapalıysa görünür katman oluşturmadan kare seçimini güncelle.
+            if (!radarEnabled) {
+                radarFrameIndex = index;
+                if (onReady) onReady(true);
+                return;
+            }
+
+            // Önceki bekleyen isteği geçersiz kıl.
+            var requestToken = ++radarRenderToken;
+
+            if (radarPendingLayer) {
+                map.removeLayer(radarPendingLayer);
+                radarPendingLayer = null;
+            }
+
+            var nextLayer = L.tileLayer(url, {
+                pane: "radarPane",
+                opacity: 0,
+                zIndex: 400,
+                maxNativeZoom: 7,
+                maxZoom: 19,
+                keepBuffer: 0,
+                updateWhenIdle: true,
+                attribution: 'Radar: RainViewer'
+            });
+
+            var loadedTiles = 0;
+            var finished = false;
+
+            nextLayer.on("tileload", function() {
+                loadedTiles++;
+            });
+
+            function failPendingFrame() {
+                if (finished) return;
+                finished = true;
+
+                if (radarPendingLayer === nextLayer) {
+                    radarPendingLayer = null;
+                }
+                if (map.hasLayer(nextLayer)) {
+                    map.removeLayer(nextLayer);
+                }
+                if (onReady) onReady(false);
+            }
+
+            nextLayer.once("load", function() {
+                if (finished) return;
+
+                if (requestToken !== radarRenderToken ||
+                    radarPendingLayer !== nextLayer ||
+                    !radarEnabled) {
+                    failPendingFrame();
+                    return;
+                }
+
+                // Hiçbir karo yüklenmediyse eski görüntüyü koru.
+                if (loadedTiles === 0) {
+                    console.warn("RainViewer: Yeni karede başarılı karo yok.");
+                    failPendingFrame();
+                    return;
+                }
+
+                finished = true;
+                radarPendingLayer = null;
+
+                var previousLayer = rainLayer;
+                rainLayer = nextLayer;
+                radarFrameIndex = index;
+
+                // Yeni görüntü hazır: görünür yap, ardından eskisini kaldır.
+                nextLayer.setOpacity(0.65);
+
+                if (previousLayer && map.hasLayer(previousLayer)) {
+                    map.removeLayer(previousLayer);
+                }
+
+                var status = document.getElementById("rainStatus");
+                if (status) status.innerText = "(AÇIK)";
+
+                if (onReady) onReady(true);
+            });
+
+            radarPendingLayer = nextLayer;
+            nextLayer.addTo(map);
+
+            // Sunucu yanıt vermezse animasyonu kilitleme; eski kareyi koru.
+            setTimeout(function() {
+                if (!finished &&
+                    requestToken === radarRenderToken &&
+                    radarPendingLayer === nextLayer) {
+                    console.warn("RainViewer: Kare yükleme zaman aşımı.");
+                    failPendingFrame();
+                }
+            }, 15000);
+        }
+
+        function stopRadarPlayback() {
+            radarPlaying = false;
+
+            if (radarTimer) {
+                clearTimeout(radarTimer);
+                radarTimer = null;
+            }
+        }
+
+        function scheduleRadarNextFrame() {
+            if (!radarPlaying || !radarEnabled) return;
+
+            if (radarFrameIndex >= radarFrames.length - 1) {
+                radarTimer = setTimeout(function() {
+                    radarTimer = null;
+                    refreshRadarFrames();
+                }, 60000);
+                return;
+            }
+
+            radarTimer = setTimeout(function() {
+                radarTimer = null;
+                if (!radarPlaying || !radarEnabled) return;
+
+                displayRadarFrame(radarFrameIndex + 1, function(success) {
+                    if (!radarPlaying) return;
+                    if (!success) {
+                        stopRadarPlayback();
+                        return;
+                    }
+                    scheduleRadarNextFrame();
+                });
+            }, 1200);
+        }
+
+        function refreshRadarFrames() {
+            if (!radarPlaying || !radarEnabled) return;
+
+            fetch("https://api.rainviewer.com/public/weather-maps.json")
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error("Radar HTTP " + response.status);
+                    }
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (!data.host || !data.radar || !data.radar.past) {
+                        throw new Error("Yeni radar verisi bulunamadı.");
+                    }
+
+                    radarHost = data.host;
+
+                    var knownTimes = {};
+                    var latestKnownTime = radarFrames.length
+                        ? radarFrames[radarFrames.length - 1].time
+                        : 0;
+
+                    radarFrames.forEach(function(frame) {
+                        knownTimes[frame.time] = true;
+                    });
+
+                    var added = 0;
+
+                    data.radar.past.forEach(function(frame) {
+                        if (frame && frame.path && frame.time &&
+                            !knownTimes[frame.time] &&
+                            frame.time > latestKnownTime) {
+                            radarFrames.push(frame);
+                            knownTimes[frame.time] = true;
+                            added++;
+                        }
+                    });
+
+                    if (added > 0) {
+                    }
+
+                    scheduleRadarNextFrame();
+                })
+                .catch(function(error) {
+                    console.warn("RainViewer otomatik güncelleme:", error);
+
+                    if (radarPlaying && radarEnabled) {
+                        radarTimer = setTimeout(function() {
+                            radarTimer = null;
+                            refreshRadarFrames();
+                        }, 60000);
+                    }
+                });
+        }
+
+        function toggleRainLayer() {
+            var status = document.getElementById("rainStatus");
+            var btn = document.getElementById("rainToggleBtn");
+
+            radarEnabled = !radarEnabled;
+
+            if (radarEnabled) {
+                if (rainLayer) {
+                    rainLayer.addTo(map);
+                }
+
+                radarPlaying = true;
+
+                if (radarFrames.length) {
+                    if (rainLayer) {
+                        scheduleRadarNextFrame();
+                    } else {
+                        var startIndex = Math.max(0, radarFrameIndex);
+
+                        displayRadarFrame(startIndex, function(success) {
+                            if (success && radarPlaying && radarEnabled) {
+                                scheduleRadarNextFrame();
+                            }
+                        });
+                    }
+                }
+            } else {
+                stopRadarPlayback();
+                radarRenderToken++;
+
+                if (radarPendingLayer) {
+                    map.removeLayer(radarPendingLayer);
+                    radarPendingLayer = null;
+                }
+
+                if (rainLayer && map.hasLayer(rainLayer)) {
+                    map.removeLayer(rainLayer);
+                }
+            }
+
+            if (status) {
+                status.innerText = radarEnabled ? "(AÇIK)" : "(KAPALI)";
+            }
+
+            if (btn) {
+                btn.style.background = radarEnabled ? "#0284c7" : "#dc2626";
+            }
+        }
+
+        fetch("https://api.rainviewer.com/public/weather-maps.json")
+            .then(function(response) {
+                if (!response.ok) throw new Error("Radar servisi HTTP " + response.status);
+                return response.json();
+            })
+            .then(function(data) {
+                if (!data.host || !data.radar || !data.radar.past) {
+                    throw new Error("Geçmiş radar verisi bulunamadı.");
+                }
+
+                radarHost = data.host;
+                radarFrames = data.radar.past.filter(function(frame) {
+                    return frame && frame.path && frame.time;
+                });
+
+                radarFrames.sort(function(a, b) {
+                    return a.time - b.time;
+                });
+
+                if (!radarFrames.length) {
+                    throw new Error("Kullanılabilir radar karesi yok.");
+                }
+
+                // İlk açılışta geçmiş kareleri otomatik oynat.
+                radarFrameIndex = -1;
+                radarPlaying = true;
+                displayRadarFrame(0, function(success) {
+                    if (success && radarPlaying) {
+                        scheduleRadarNextFrame();
+                    }
+                });
+            })
+            .catch(function(error) {
+                console.error("RainViewer radar hatası:", error);
+
+            });
 
         function toggleTheme() {
             var body = document.body;
@@ -2338,43 +2883,102 @@ def index():
     map_mist_svg = '''<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="8" x2="21" y2="8"></line><line x1="5" y1="12" x2="19" y2="12"></line><line x1="3" y1="16" x2="21" y2="16"></line></svg>'''
     map_rain_svg = '''<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="3.5" fill="#38bdf8" fill-opacity="0.3" stroke-linecap="round" stroke-linejoin="round"><path class="svg-cloud" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><line class="svg-rain-drop" x1="8" y1="22" x2="8" y2="24" stroke="#2563eb"></line><line class="svg-rain-drop" x1="12" y1="22" x2="12" y2="24" stroke="#2563eb" style="animation-delay: 0.3s;"></line><line class="svg-rain-drop" x1="16" y1="22" x2="16" y2="24" stroke="#2563eb" style="animation-delay: 0.6s;"></line></svg>'''
 
-    for c in cities:
-        try:
-            encoded_city = urllib.parse.quote(c['name'])
-            r = requests.get(f"https://wttr.in/{encoded_city}?format=j1", timeout=2).json()
-            current = r["current_condition"][0]
-            temp = current["temp_C"]
-            humidity = current["humidity"]
-            raw_desc = current["weatherDesc"][0]["value"]
-            
-            desc_lower_key = raw_desc.strip().lower()
-            desc = tr_translations.get(desc_lower_key, raw_desc)
-            
-            d_lower = desc.lower()
-            if "yağmur" in d_lower or "rain" in d_lower or "fırtına" in d_lower or "sağanak" in d_lower:
-                svg_icon, map_svg = rain_svg, map_rain_svg
-            elif "pus" in d_lower or "mist" in d_lower or "sis" in d_lower:
+    # Open-Meteo: 11 şehrin güncel hava verisini tek istekte al
+    weather_codes = {
+        0: "Açık",
+        1: "Az Bulutlu",
+        2: "Parçalı Bulutlu",
+        3: "Kapalı",
+        45: "Sisli",
+        48: "Yoğun Sisli",
+        51: "Hafif Çisenti",
+        53: "Çisenti",
+        55: "Kuvvetli Çisenti",
+        56: "Donan Çisenti",
+        57: "Kuvvetli Donan Çisenti",
+        61: "Hafif Yağmurlu",
+        63: "Yağmurlu",
+        65: "Kuvvetli Yağmurlu",
+        66: "Donan Yağmur",
+        67: "Kuvvetli Donan Yağmur",
+        71: "Hafif Karlı",
+        73: "Karlı",
+        75: "Kuvvetli Karlı",
+        77: "Kar Taneleri",
+        80: "Hafif Sağanak",
+        81: "Sağanak Yağışlı",
+        82: "Kuvvetli Sağanak",
+        85: "Kar Sağanağı",
+        86: "Kuvvetli Kar Sağanağı",
+        95: "Gök Gürültülü Fırtına",
+        96: "Dolu Yağışlı Fırtına",
+        99: "Kuvvetli Dolu Fırtınası"
+    }
+
+    try:
+        params = {
+            "latitude": ",".join(str(c["lat"]) for c in cities),
+            "longitude": ",".join(str(c["lon"]) for c in cities),
+            "current": "temperature_2m,relative_humidity_2m,weather_code",
+            "timezone": "Europe/Istanbul"
+        }
+
+        response = requests.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params=params,
+            timeout=15
+        )
+        response.raise_for_status()
+        weather_results = response.json()
+
+        if not isinstance(weather_results, list) or len(weather_results) != len(cities):
+            raise ValueError(
+                f"Beklenmeyen şehir verisi: {len(weather_results) if isinstance(weather_results, list) else type(weather_results).__name__}"
+            )
+
+        for c, result in zip(cities, weather_results):
+            current = result["current"]
+            code = int(current["weather_code"])
+            desc = weather_codes.get(code, "Güncel")
+
+            if code in (45, 48):
                 svg_icon, map_svg = mist_svg, map_mist_svg
-            elif "bulut" in d_lower or "cloud" in d_lower or "overcast" in d_lower:
+            elif 51 <= code <= 67 or 80 <= code <= 82 or 95 <= code <= 99:
+                svg_icon, map_svg = rain_svg, map_rain_svg
+            elif code in (1, 2, 3, 71, 73, 75, 77, 85, 86):
                 svg_icon, map_svg = cloud_svg, map_cloud_svg
+            elif is_night:
+                svg_icon, map_svg = moon_svg, map_moon_svg
+                if code in (0, 1):
+                    desc = "Açık (Gece)" if code == 0 else "Az Bulutlu (Gece)"
             else:
-                if is_night:
-                    svg_icon, map_svg = moon_svg, map_moon_svg
-                    if "açık" in desc.lower() or "güneşli" in desc.lower():
-                        desc = "Açık (Gece)"
-                else:
-                    svg_icon, map_svg = sun_svg, map_sun_svg
-            
+                svg_icon, map_svg = sun_svg, map_sun_svg
+
             weather_list.append({
-                "city": c["name"], "temp": temp, "humidity": humidity, "desc": desc,
-                "svg_icon": svg_icon, "map_svg": map_svg, "lat": c["lat"], "lon": c["lon"]
+                "city": c["name"],
+                "temp": str(round(current["temperature_2m"])),
+                "humidity": str(current["relative_humidity_2m"]),
+                "desc": desc,
+                "svg_icon": svg_icon,
+                "map_svg": map_svg,
+                "lat": c["lat"],
+                "lon": c["lon"]
             })
-        except:
+
+    except Exception as e:
+        print("HAVA DURUMU HATASI (Open-Meteo):", e)
+        for c in cities:
             default_icon = moon_svg if is_night else sun_svg
             default_map_icon = map_moon_svg if is_night else map_sun_svg
             weather_list.append({
-                "city": c["name"], "temp": "--", "humidity": "--", "desc": "Güncel",
-                "svg_icon": default_icon, "map_svg": default_map_icon, "lat": c["lat"], "lon": c["lon"]
+                "city": c["name"],
+                "temp": "--",
+                "humidity": "--",
+                "desc": "Veri alınamadı",
+                "svg_icon": default_icon,
+                "map_svg": default_map_icon,
+                "lat": c["lat"],
+                "lon": c["lon"]
             })
 
     meteors = []
